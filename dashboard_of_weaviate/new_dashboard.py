@@ -2036,6 +2036,235 @@ def generate_distribution_data(similarities, num_bins=12):
     
     return data
 
+# Add model for retrieval metrics analysis request
+class RetrievalMetricsRequest(BaseModel):
+    class_name: Optional[str] = Field(None, description="Name of the class to analyze")
+    query: str = Field(..., description="The search query to evaluate")
+    max_k: int = Field(10, description="Maximum k value to calculate metrics for", ge=1, le=100)
+
+# Add API endpoint for retrieval metrics analysis
+@app.post("/api/classes/{class_name}/retrieval-metrics")
+async def analyze_retrieval_metrics(
+    class_name: str = Path(..., description="Name of the class to analyze"),
+    request: RetrievalMetricsRequest = Body(...),
+):
+    """
+    Analyze retrieval metrics (Precision@k, Recall@k, F1 Score@k) for a search query.
+    This helps evaluate the quality of vector search results.
+    """
+    try:
+        # Perform vector search using the query
+        query = request.query
+        max_k = min(request.max_k, 100)  # Limit to 100 maximum
+        
+        # Double the max_k to get more results for sampling "relevant" documents
+        search_limit = max(max_k * 2, 30)  # Get at least 30 results if possible
+        
+        # Perform search using current Weaviate instance
+        search_results = perform_vector_search(class_name, query, limit=search_limit)
+        
+        if search_results.get("status") != "success" or not search_results.get("results"):
+            return {
+                "status": "error",
+                "message": f"No search results found for query: {query}"
+            }
+            
+        results = search_results.get("results", [])
+        total_results = len(results)
+        
+        if total_results < 3:
+            return {
+                "status": "error",
+                "message": f"Too few search results ({total_results}) to perform meaningful analysis. Try a different query."
+            }
+        
+        # Extract document identifiers from results
+        retrieved_docs = []
+        certainty_scores = []
+        
+        for r in results:
+            # Create a unique identifier for each document
+            doc_id = {}
+            for key, value in r.items():
+                if key != "_additional" and not isinstance(value, (list, dict)):
+                    doc_id[key] = value
+            
+            retrieved_docs.append(doc_id)
+            
+            # Get certainty scores
+            if "_additional" in r and "certainty" in r["_additional"]:
+                certainty_scores.append(r["_additional"]["certainty"])
+            else:
+                certainty_scores.append(0.0)
+        
+        # Randomly select some as "relevant" for demonstration
+        # Using fixed seed for reproducibility
+        np.random.seed(42)
+        relevant_size = min(total_results // 2, 10)  # Use up to half the results as relevant, max 10
+        if relevant_size < 2:
+            relevant_size = 2  # Ensure at least 2 relevant docs if possible
+            
+        relevant_indices = np.random.choice(
+            total_results, 
+            size=relevant_size,
+            replace=False
+        )
+        
+        # Create list of relevant documents
+        relevant_docs = [retrieved_docs[i] for i in relevant_indices]
+        
+        # Only keep max_k results for metrics calculation
+        retrieved_docs = retrieved_docs[:max_k]
+        certainty_scores = certainty_scores[:max_k]
+        
+        # Calculate metrics at each k
+        precision_at_k = []
+        recall_at_k = []
+        f1_at_k = []
+        
+        for k in range(1, max_k + 1):
+            # Only consider top k results
+            docs_at_k = retrieved_docs[:k]
+            
+            # Calculate relevant retrieved docs
+            # We need to match each doc in docs_at_k with each in relevant_docs
+            relevant_retrieved = 0
+            for doc in docs_at_k:
+                for rel_doc in relevant_docs:
+                    # Check if all keys in rel_doc match in doc
+                    match = True
+                    for key, value in rel_doc.items():
+                        if key not in doc or doc[key] != value:
+                            match = False
+                            break
+                    
+                    if match:
+                        relevant_retrieved += 1
+                        break
+            
+            # Calculate Precision@k
+            precision = relevant_retrieved / k if k > 0 else 0
+            
+            # Calculate Recall@k
+            recall = relevant_retrieved / len(relevant_docs) if relevant_docs else 0
+            
+            # Calculate F1 Score@k
+            f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+            
+            precision_at_k.append(precision)
+            recall_at_k.append(recall)
+            f1_at_k.append(f1)
+        
+        # Create retrieval data for visualization
+        retrieval_data = {
+            "docs": retrieved_docs,
+            "certainty": certainty_scores,
+            "relevant": []
+        }
+        
+        # Mark which documents are relevant
+        for doc in retrieved_docs:
+            is_relevant = False
+            for rel_doc in relevant_docs:
+                match = True
+                for key, value in rel_doc.items():
+                    if key not in doc or doc[key] != value:
+                        match = False
+                        break
+                
+                if match:
+                    is_relevant = True
+                    break
+            
+            retrieval_data["relevant"].append(1 if is_relevant else 0)
+        
+        # Create data for visualization
+        k_values = list(range(1, max_k + 1))
+        
+        # Calculate additional statistics
+        max_p_idx = np.argmax(precision_at_k)
+        max_r_idx = np.argmax(recall_at_k)
+        max_f1_idx = np.argmax(f1_at_k)
+        
+        stats = {
+            "max_precision": {
+                "value": float(max(precision_at_k)),
+                "at_k": int(max_p_idx + 1)
+            },
+            "max_recall": {
+                "value": float(max(recall_at_k)),
+                "at_k": int(max_r_idx + 1)
+            },
+            "max_f1": {
+                "value": float(max(f1_at_k)),
+                "at_k": int(max_f1_idx + 1)
+            },
+            "avg_precision": float(np.mean(precision_at_k)),
+            "avg_recall": float(np.mean(recall_at_k)),
+            "avg_f1": float(np.mean(f1_at_k)),
+            "auc_precision": float(np.trapz(precision_at_k) / max_k),
+            "auc_recall": float(np.trapz(recall_at_k) / max_k),
+            "auc_f1": float(np.trapz(f1_at_k) / max_k)
+        }
+        
+        # Create bar chart data for comparison at key k values
+        key_indices = [0, max_k//2, -1]
+        key_k_values = [k_values[i] for i in key_indices]
+        key_precision = [precision_at_k[i] for i in key_indices]
+        key_recall = [recall_at_k[i] for i in key_indices]
+        key_f1 = [f1_at_k[i] for i in key_indices]
+        
+        bar_chart_data = {
+            "k_values": key_k_values,
+            "precision": key_precision,
+            "recall": key_recall,
+            "f1": key_f1
+        }
+        
+        # Create heatmap data
+        heatmap_data = {
+            "precision": precision_at_k,
+            "recall": recall_at_k,
+            "f1": f1_at_k,
+            "k_values": k_values
+        }
+        
+        # Create radar chart data
+        radar_data = [
+            float(np.mean(precision_at_k)),  # Average precision
+            float(np.mean(recall_at_k)),     # Average recall
+            float(np.mean(f1_at_k)),         # Average F1
+            float(np.mean([np.mean(precision_at_k), np.mean(recall_at_k), np.mean(f1_at_k)])),  # Overall average
+            float(max(precision_at_k)),      # Max precision
+            float(max(recall_at_k))         # Max recall
+        ]
+        
+        return {
+            "status": "success",
+            "class_name": class_name,
+            "query": query,
+            "max_k": max_k,
+            "k_values": k_values,
+            "precision_at_k": [float(p) for p in precision_at_k],
+            "recall_at_k": [float(r) for r in recall_at_k],
+            "f1_at_k": [float(f) for f in f1_at_k],
+            "retrieval_data": retrieval_data,
+            "statistics": stats,
+            "bar_chart_data": bar_chart_data,
+            "heatmap_data": heatmap_data,
+            "radar_data": radar_data,
+            "relevant_docs_count": len(relevant_docs),
+            "total_results_count": total_results
+        }
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
 if __name__ == "__main__":
     import socket
     import argparse

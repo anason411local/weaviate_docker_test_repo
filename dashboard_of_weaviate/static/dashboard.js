@@ -115,7 +115,19 @@ const elements = {
     cosineStatsTable: document.getElementById('cosineStatsTable'),
     cosineHistogramPlot: document.getElementById('cosineHistogramPlot'),
     cosineDistributionPlot: document.getElementById('cosineDistributionPlot'),
-    runCosineSimilarityBtn: document.getElementById('runCosineSimilarityBtn')
+    runCosineSimilarityBtn: document.getElementById('runCosineSimilarityBtn'),
+    
+    // Retrieval Metrics elements
+    retrievalQuery: document.getElementById('retrievalQuery'),
+    retrievalMaxK: document.getElementById('retrievalMaxK'),
+    runRetrievalMetricsBtn: document.getElementById('runRetrievalMetricsBtn'),
+    retrievalMetricsResults: document.getElementById('retrievalMetricsResults'),
+    retrievalInfo: document.getElementById('retrievalInfo'),
+    retrievalMainPlot: document.getElementById('retrievalMainPlot'),
+    retrievalRadarPlot: document.getElementById('retrievalRadarPlot'),
+    retrievalBarPlot: document.getElementById('retrievalBarPlot'),
+    retrievalHeatmapPlot: document.getElementById('retrievalHeatmapPlot'),
+    retrievalDocsPlot: document.getElementById('retrievalDocsPlot')
 };
 
 // Current state
@@ -1238,6 +1250,9 @@ async function loadClassDetail(className) {
         document.getElementById('runCosineSimilarityBtn').addEventListener('click', function() {
             runCosineSimilarityAnalysis(className);
         });
+        
+        // Initialize retrieval metrics components
+        initRetrievalMetrics(className);
         
     } catch (error) {
         console.error('Error loading class detail:', error);
@@ -2683,50 +2698,261 @@ function renderCosineStatistics(stats) {
     const tableBody = document.querySelector('#cosineStatsTable tbody');
     tableBody.innerHTML = '';
     
+    // Define color scale for values
+    const getColor = (value) => {
+        // For cosine similarity, higher values generally indicate more similarity
+        // Using a scale from blue (low) to purple (high)
+        if (value >= 0.8) return '#673AB7'; // High - purple
+        if (value >= 0.6) return '#3F51B5'; // Medium-high - indigo
+        if (value >= 0.4) return '#2196F3'; // Medium - blue
+        if (value >= 0.2) return '#03A9F4'; // Medium-low - light blue
+        return '#4FC3F7'; // Low - very light blue
+    };
+    
+    // Add header with styling
+    const headerRow = document.createElement('tr');
+    headerRow.innerHTML = `
+        <th style="background-color: rgba(63, 81, 181, 0.1);">Metric</th>
+        <th style="background-color: rgba(63, 81, 181, 0.1);">Value</th>
+        <th style="background-color: rgba(63, 81, 181, 0.1);">Visualization</th>
+    `;
+    tableBody.appendChild(headerRow);
+    
+    // Format rows with visualization
     const rows = [
-        ['Count', stats.count],
-        ['Mean', stats.mean.toFixed(4)],
-        ['Median', stats.median.toFixed(4)],
-        ['Standard Deviation', stats.std.toFixed(4)],
-        ['Minimum', stats.min.toFixed(4)],
-        ['25th Percentile', stats['25%'].toFixed(4)],
-        ['75th Percentile', stats['75%'].toFixed(4)],
-        ['90th Percentile', stats['90%'].toFixed(4)],
-        ['95th Percentile', stats['95%'].toFixed(4)],
-        ['99th Percentile', stats['99%'].toFixed(4)],
-        ['Maximum', stats.max.toFixed(4)]
+        ['Count', stats.count, null],
+        ['Mean', stats.mean.toFixed(4), stats.mean],
+        ['Median', stats.median.toFixed(4), stats.median],
+        ['Standard Deviation', stats.std.toFixed(4), null],
+        ['Minimum', stats.min.toFixed(4), stats.min],
+        ['25th Percentile', stats['25%'].toFixed(4), stats['25%']],
+        ['75th Percentile', stats['75%'].toFixed(4), stats['75%']],
+        ['90th Percentile', stats['90%'].toFixed(4), stats['90%']],
+        ['95th Percentile', stats['95%'].toFixed(4), stats['95%']],
+        ['99th Percentile', stats['99%'].toFixed(4), stats['99%']],
+        ['Maximum', stats.max.toFixed(4), stats.max]
     ];
     
-    rows.forEach(row => {
+    rows.forEach((row, index) => {
+        const [metric, value, visualValue] = row;
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${row[0]}</td><td>${row[1]}</td>`;
+        
+        // Apply alternating row background
+        const bgColor = index % 2 === 0 ? 'rgba(240, 245, 250, 0.5)' : 'rgba(255, 255, 255, 0.9)';
+        tr.style.backgroundColor = bgColor;
+        
+        // Add hover effect
+        tr.style.transition = 'background-color 0.2s';
+        tr.addEventListener('mouseover', () => {
+            tr.style.backgroundColor = 'rgba(200, 220, 240, 0.5)';
+        });
+        tr.addEventListener('mouseout', () => {
+            tr.style.backgroundColor = bgColor;
+        });
+        
+        // Create the metric cell with styling
+        const metricCell = document.createElement('td');
+        metricCell.style.fontWeight = 'bold';
+        metricCell.style.padding = '8px 12px';
+        metricCell.textContent = metric;
+        
+        // Create the value cell with styling
+        const valueCell = document.createElement('td');
+        valueCell.style.padding = '8px 12px';
+        valueCell.style.textAlign = 'right';
+        valueCell.style.fontFamily = 'monospace';
+        valueCell.style.fontSize = '14px';
+        
+        // Create the visualization cell
+        const visualCell = document.createElement('td');
+        visualCell.style.padding = '8px 12px';
+        
+        if (metric === 'Count') {
+            valueCell.textContent = value.toLocaleString();
+            visualCell.textContent = '-';
+            visualCell.style.color = '#999';
+            visualCell.style.textAlign = 'center';
+        } else {
+            // Style numeric values
+            valueCell.textContent = value;
+            
+            if (visualValue !== null) {
+                // Calculate width for bar (0 to 100%)
+                const barWidthPercent = Math.max(Math.min(visualValue, 1), 0) * 100;
+                const color = getColor(visualValue);
+                
+                // Create a bar visualization
+                visualCell.innerHTML = `
+                    <div style="display: flex; align-items: center; height: 20px;">
+                        <div style="
+                            width: ${barWidthPercent}%; 
+                            height: 16px; 
+                            background-color: ${color};
+                            border-radius: 3px;
+                            position: relative;
+                            min-width: 2px;
+                            max-width: 100%;
+                        "></div>
+                        <div style="
+                            position: absolute; 
+                            margin-left: ${Math.min(barWidthPercent, 90)}%;
+                            font-size: 9px;
+                            color: ${barWidthPercent > 50 ? 'white' : '#333'};
+                            transform: translateX(${barWidthPercent > 50 ? '-100%' : '5px'});
+                        ">${barWidthPercent.toFixed(0)}%</div>
+                    </div>
+                `;
+            } else {
+                // For non-visualization cells
+                visualCell.textContent = '-';
+                visualCell.style.color = '#999';
+                visualCell.style.textAlign = 'center';
+            }
+        }
+        
+        // Add cells to the row in the correct order
+        tr.appendChild(metricCell);
+        tr.appendChild(valueCell);
+        tr.appendChild(visualCell);
+        
+        // Special tooltip for interpretation
+        if (['Mean', 'Median', 'Standard Deviation'].includes(metric)) {
+            tr.title = getInterpretationText(metric, parseFloat(value));
+            tr.style.cursor = 'help';
+        }
+        
         tableBody.appendChild(tr);
     });
+    
+    // Add a summary row
+    const summaryRow = document.createElement('tr');
+    summaryRow.style.backgroundColor = 'rgba(63, 81, 181, 0.08)';
+    summaryRow.style.fontWeight = 'bold';
+    summaryRow.style.borderTop = '2px solid rgba(63, 81, 181, 0.2)';
+    summaryRow.innerHTML = `
+        <td colspan="3" style="padding: 8px 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Overall Distribution Quality:</span>
+                <span style="color: ${getQualityColor(stats)};">${getQualityText(stats)}</span>
+            </div>
+        </td>
+    `;
+    tableBody.appendChild(summaryRow);
+}
+
+// Helper function to determine quality text
+function getQualityText(stats) {
+    const stdDev = stats.std;
+    const mean = stats.mean;
+    const median = stats.median;
+    
+    // These thresholds could be adjusted based on domain knowledge
+    if (stdDev > 0.3 && Math.abs(mean - median) < 0.1) {
+        return 'Good Distribution (Wide Range)';
+    } else if (stdDev > 0.15 && Math.abs(mean - median) < 0.15) {
+        return 'Acceptable Distribution';
+    } else if (mean > 0.7 && stdDev < 0.15) {
+        return 'High Similarity (Potential Concern)';
+    } else if (mean < 0.3 && stdDev < 0.15) {
+        return 'Low Similarity (Distinct Content)';
+    }
+    return 'Typical Distribution';
+}
+
+// Helper function to get color for quality summary
+function getQualityColor(stats) {
+    const stdDev = stats.std;
+    const mean = stats.mean;
+    
+    if (stdDev > 0.3 && mean > 0.3 && mean < 0.7) {
+        return '#4CAF50'; // Good - green
+    } else if (mean > 0.8 && stdDev < 0.15) {
+        return '#F44336'; // Concern - red
+    } else if (stdDev < 0.1) {
+        return '#FF9800'; // Caution - orange
+    }
+    return '#2196F3'; // Normal - blue
+}
+
+// Helper function for tooltips
+function getInterpretationText(metric, value) {
+    switch (metric) {
+        case 'Mean':
+            if (value > 0.8) return 'High average similarity may indicate redundant content';
+            if (value < 0.3) return 'Low average similarity suggests diverse, distinct content';
+            return 'Moderate average similarity is typical for related but distinct content';
+        case 'Median':
+            if (value > 0.8) return 'High median similarity indicates most document pairs are closely related';
+            if (value < 0.3) return 'Low median similarity indicates most document pairs are distinct';
+            return 'Moderate median similarity is balanced';
+        case 'Standard Deviation':
+            if (value > 0.3) return 'High variation in similarity values (diverse relationships)';
+            if (value < 0.1) return 'Low variation in similarity values (consistent relationships)';
+            return 'Moderate variation in similarity values';
+        default:
+            return '';
+    }
 }
 
 // Function to render cosine similarity histogram using Plotly
 function renderCosineHistogram(data) {
     const plotDiv = document.getElementById('cosineHistogramPlot');
     
-    // Create the histogram trace
+    // Create the histogram trace with enhanced styling
     const trace = {
         x: data.x,
         y: data.y,
         type: 'bar',
         marker: {
             color: data.x.map(value => {
-                // Create a color gradient
-                return `rgba(63, 81, 181, ${Math.min(value, 0.9)})`;
+                // Create a more vibrant color gradient based on values
+                const intensity = Math.min(Math.max((value - data.min) / (data.max - data.min), 0.1), 1);
+                return `rgba(33, 150, 243, ${intensity * 0.9})`;
             }),
             line: {
-                color: 'white',
-                width: 1
+                color: 'rgba(255, 255, 255, 0.8)',
+                width: 1.5
             }
         },
-        name: 'Frequency'
+        name: 'Frequency',
+        hovertemplate: '<b>Similarity:</b> %{x:.4f}<br>' +
+                      '<b>Frequency:</b> %{y}<br>' +
+                      '<extra></extra>',
     };
     
-    // Add vertical lines for statistics
+    // Add a significance zone (shaded area)
+    const significanceArea = {
+        type: 'rect',
+        xref: 'x',
+        yref: 'paper',
+        x0: 0.8,  // Start of high similarity zone
+        x1: 1.0,
+        y0: 0,
+        y1: 1,
+        fillcolor: 'rgba(76, 175, 80, 0.1)',
+        line: {
+            width: 0
+        },
+        layer: 'below'
+    };
+    
+    // Add low similarity zone
+    const lowSimilarityArea = {
+        type: 'rect',
+        xref: 'x',
+        yref: 'paper',
+        x0: -1.0,  // Start of low similarity zone (negative values possible)
+        x1: 0.2,
+        y0: 0,
+        y1: 1,
+        fillcolor: 'rgba(244, 67, 54, 0.1)',
+        line: {
+            width: 0
+        },
+        layer: 'below'
+    };
+
+    // Add vertical lines for statistics with improved styling
     const meanLine = {
         type: 'line',
         x0: data.mean,
@@ -2735,7 +2961,7 @@ function renderCosineHistogram(data) {
         y1: Math.max(...data.y) * 1.1,
         line: {
             color: '#F44336',
-            width: 2,
+            width: 2.5,
             dash: 'solid'
         },
         name: `Mean: ${data.mean.toFixed(4)}`
@@ -2749,7 +2975,7 @@ function renderCosineHistogram(data) {
         y1: Math.max(...data.y) * 1.1,
         line: {
             color: '#4CAF50',
-            width: 2,
+            width: 2.5,
             dash: 'solid'
         },
         name: `Median: ${data.median.toFixed(4)}`
@@ -2764,7 +2990,7 @@ function renderCosineHistogram(data) {
         line: {
             color: '#9C27B0',
             width: 2,
-            dash: 'dash'
+            dash: 'dot'
         },
         name: `25th %: ${data.q1.toFixed(4)}`
     };
@@ -2778,62 +3004,95 @@ function renderCosineHistogram(data) {
         line: {
             color: '#9C27B0',
             width: 2,
-            dash: 'dash'
+            dash: 'dot'
         },
         name: `75th %: ${data.q3.toFixed(4)}`
     };
     
-    // Create the layout
+    // Create enhanced layout with gradient background
     const layout = {
         title: {
             text: 'Cosine Similarity Distribution Histogram',
             font: {
-                size: 18,
+                size: 20,
                 family: 'Arial, sans-serif',
-                weight: 'bold'
+                weight: 'bold',
+                color: '#333'
             }
         },
         xaxis: {
             title: {
                 text: 'Cosine Similarity',
                 font: {
-                    size: 14,
-                    family: 'Arial, sans-serif'
+                    size: 16,
+                    family: 'Arial, sans-serif',
+                    color: '#555'
                 }
-            }
+            },
+            gridcolor: 'rgba(200, 200, 200, 0.2)',
+            zerolinecolor: 'rgba(0, 0, 0, 0.2)',
+            range: [-0.1, 1.1]  // Slightly extend range for better visualization
         },
         yaxis: {
             title: {
                 text: 'Frequency',
                 font: {
-                    size: 14,
-                    family: 'Arial, sans-serif'
+                    size: 16,
+                    family: 'Arial, sans-serif',
+                    color: '#555'
                 }
-            }
+            },
+            gridcolor: 'rgba(200, 200, 200, 0.2)',
+            zerolinecolor: 'rgba(0, 0, 0, 0.2)'
         },
-        shapes: [meanLine, medianLine, q1Line, q3Line],
+        shapes: [significanceArea, lowSimilarityArea, meanLine, medianLine, q1Line, q3Line],
         showlegend: false,
-        plot_bgcolor: '#f8f9fa',
-        paper_bgcolor: '#f8f9fa',
+        plot_bgcolor: 'rgba(240, 245, 250, 0.95)',
+        paper_bgcolor: 'rgba(240, 245, 250, 0.9)',
         margin: {
-            l: 50,
+            l: 60,
             r: 50,
-            b: 50,
-            t: 70,
+            b: 60,
+            t: 80,
             pad: 4
         },
         annotations: [
+            {
+                xref: 'paper',
+                yref: 'paper',
+                x: 0.01,
+                y: 0.98,
+                text: `Total samples: ${data.y.reduce((a, b) => a + b, 0)}`,
+                showarrow: false,
+                bgcolor: 'rgba(255, 255, 255, 0.8)',
+                bordercolor: 'rgba(0, 0, 0, 0.1)',
+                borderwidth: 1,
+                borderpad: 4,
+                font: {
+                    size: 12,
+                    color: '#444',
+                    family: 'Arial, sans-serif'
+                }
+            },
             {
                 x: data.mean,
                 y: Math.max(...data.y) * 1.05,
                 text: `Mean: ${data.mean.toFixed(4)}`,
                 showarrow: true,
                 arrowhead: 2,
-                arrowsize: 1,
-                arrowwidth: 1,
+                arrowsize: 1.2,
+                arrowwidth: 1.5,
                 arrowcolor: '#F44336',
                 ax: 0,
-                ay: -40
+                ay: -40,
+                font: {
+                    color: '#F44336',
+                    size: 13
+                },
+                bgcolor: 'rgba(255, 255, 255, 0.9)',
+                bordercolor: '#F44336',
+                borderwidth: 1,
+                borderpad: 3
             },
             {
                 x: data.median,
@@ -2841,108 +3100,247 @@ function renderCosineHistogram(data) {
                 text: `Median: ${data.median.toFixed(4)}`,
                 showarrow: true,
                 arrowhead: 2,
-                arrowsize: 1,
-                arrowwidth: 1,
+                arrowsize: 1.2,
+                arrowwidth: 1.5,
                 arrowcolor: '#4CAF50',
                 ax: 0,
-                ay: -40
+                ay: -40,
+                font: {
+                    color: '#4CAF50',
+                    size: 13
+                },
+                bgcolor: 'rgba(255, 255, 255, 0.9)',
+                bordercolor: '#4CAF50',
+                borderwidth: 1,
+                borderpad: 3
+            },
+            {
+                xref: 'paper',
+                yref: 'paper',
+                x: 0.99,
+                y: 0.02,
+                text: 'Click bars to view details',
+                showarrow: false,
+                font: {
+                    size: 11,
+                    color: '#777',
+                    italic: true,
+                    family: 'Arial, sans-serif'
+                }
             }
         ]
     };
     
-    // Create the plot
-    Plotly.newPlot(plotDiv, [trace], layout, {responsive: true});
+    // Create the plot with enhanced config
+    Plotly.newPlot(plotDiv, [trace], layout, {
+        responsive: true,
+        displayModeBar: true,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+        toImageButtonOptions: {
+            format: 'png',
+            filename: 'cosine_similarity_histogram',
+            height: 500,
+            width: 800,
+            scale: 2
+        }
+    });
+    
+    // Add click event for interactivity
+    plotDiv.on('plotly_click', function(data) {
+        const point = data.points[0];
+        
+        // Show alert with bin details for demonstration
+        const binStart = point.x - (data.x[1] - data.x[0]) / 2;
+        const binEnd = point.x + (data.x[1] - data.x[0]) / 2;
+        
+        // Create and display a popover or tooltip instead of alert for better UX
+        let infoContent = `
+            <div style="font-family:Arial; padding:10px;">
+                <h6 style="margin-top:0;">Similarity Bin Details</h6>
+                <p><b>Range:</b> ${binStart.toFixed(4)} - ${binEnd.toFixed(4)}</p>
+                <p><b>Count:</b> ${point.y} document pairs</p>
+                <p><b>Interpretation:</b> ${
+                    point.x > 0.8 ? 'High similarity - these documents are very closely related.' :
+                    point.x > 0.5 ? 'Moderate similarity - these documents share some concepts.' :
+                    'Low similarity - these documents are mostly unrelated.'
+                }</p>
+            </div>
+        `;
+        
+        // Use a custom lightweight tooltip/modal implementation
+        let infoBox = document.getElementById('histogram-info-box');
+        if (!infoBox) {
+            infoBox = document.createElement('div');
+            infoBox.id = 'histogram-info-box';
+            infoBox.style.cssText = `
+                position: absolute;
+                max-width: 300px;
+                background: white;
+                border-radius: 5px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                z-index: 1000;
+                display: none;
+            `;
+            document.body.appendChild(infoBox);
+        }
+        
+        // Position near the click but ensure it's visible
+        const rect = plotDiv.getBoundingClientRect();
+        infoBox.style.left = (rect.left + point.xaxis.d2p(point.x) + window.scrollX + 10) + 'px';
+        infoBox.style.top = (rect.top + point.yaxis.d2p(point.y) + window.scrollY - 100) + 'px';
+        infoBox.innerHTML = infoContent;
+        infoBox.style.display = 'block';
+        
+        // Close on click outside
+        const closeInfoBox = function(e) {
+            if (e.target !== infoBox && !infoBox.contains(e.target)) {
+                infoBox.style.display = 'none';
+                document.removeEventListener('click', closeInfoBox);
+            }
+        };
+        
+        // Add a small delay to prevent immediate closure
+        setTimeout(() => {
+            document.addEventListener('click', closeInfoBox);
+        }, 100);
+    });
 }
 
 // Function to render cosine similarity distribution using Plotly
 function renderCosineDistribution(data) {
     const plotDiv = document.getElementById('cosineDistributionPlot');
     
-    // Create the bar chart trace
+    // Create a beautiful color palette for the gradient
+    const colors = [];
+    for (let i = 0; i < data.percentages.length; i++) {
+        // Calculate color based on position in the spectrum (blue to purple)
+        const ratio = i / (data.percentages.length - 1);
+        const r = Math.round(33 + (126 - 33) * ratio);
+        const g = Math.round(150 + (64 - 150) * ratio);
+        const b = Math.round(243 + (186 - 243) * ratio);
+        colors.push(`rgba(${r}, ${g}, ${b}, 0.85)`);
+    }
+    
+    // Create the bar chart trace with improved styling
     const trace = {
         x: data.bin_labels,
         y: data.percentages,
         type: 'bar',
         marker: {
-            color: 'rgba(63, 81, 181, 0.7)',
+            color: colors,
             line: {
-                color: 'white',
+                color: 'rgba(255, 255, 255, 0.8)',
                 width: 1.5
             }
         },
-        hovertemplate: 'Range: %{x}<br>' +
-                      'Percentage: %{y:.2f}%<br>' +
-                      'Count: %{text}<extra></extra>',
+        hovertemplate: '<b>Range:</b> %{x}<br>' +
+                      '<b>Percentage:</b> %{y:.2f}%<br>' +
+                      '<b>Count:</b> %{text}<br>' +
+                      '<extra></extra>',
         text: data.counts,
-        name: 'Percentage'
+        name: 'Distribution'
     };
     
-    // Add a smooth curve to visualize the trend
-    // First, we need to extract bin centers from the labels
+    // Calculate the bin centers for a smoother trend line
     const binCenters = data.bin_labels.map(label => {
         const parts = label.split(' - ');
-        const min = parseFloat(parts[0]);
-        const max = parseFloat(parts[1]);
-        return (min + max) / 2;
+        return (parseFloat(parts[0]) + parseFloat(parts[1])) / 2;
     });
     
-    // Create a scatter trace with a smooth line
+    // Create a scatter trace with a smooth line and improved styling
     const smoothTrace = {
         x: binCenters,
         y: data.percentages,
         type: 'scatter',
         mode: 'lines',
         line: {
-            color: '#FF4081',
-            width: 3,
+            color: 'rgba(156, 39, 176, 0.9)',
+            width: 4,
             shape: 'spline',
             smoothing: 1.3
         },
-        name: 'Trend'
+        name: 'Trend',
+        hoverinfo: 'skip'
     };
     
-    // Create the layout
+    // Add markers to the line for emphasis
+    const markerTrace = {
+        x: binCenters,
+        y: data.percentages,
+        type: 'scatter',
+        mode: 'markers',
+        marker: {
+            color: 'rgba(156, 39, 176, 0.9)',
+            size: 8,
+            line: {
+                color: 'white',
+                width: 1
+            }
+        },
+        name: 'Points',
+        hoverinfo: 'skip',
+        showlegend: false
+    };
+    
+    // Find the peak (maximum percentage)
+    const maxIndex = data.percentages.indexOf(Math.max(...data.percentages));
+    const peakRange = data.bin_labels[maxIndex];
+    const peakPercentage = data.percentages[maxIndex];
+    
+    // Create improved layout with enhanced styling
     const layout = {
         title: {
-            text: 'Percentage-wise Cosine Similarity Distribution',
+            text: 'Cosine Similarity Distribution',
             font: {
-                size: 18,
+                size: 20,
                 family: 'Arial, sans-serif',
-                weight: 'bold'
+                weight: 'bold',
+                color: '#333'
             }
         },
         xaxis: {
             title: {
                 text: 'Similarity Range',
                 font: {
-                    size: 14,
-                    family: 'Arial, sans-serif'
+                    size: 16,
+                    family: 'Arial, sans-serif',
+                    color: '#555'
                 }
             },
-            tickangle: -45
+            tickangle: -45,
+            gridcolor: 'rgba(200, 200, 200, 0.2)',
+            zerolinecolor: 'rgba(0, 0, 0, 0.2)'
         },
         yaxis: {
             title: {
                 text: 'Percentage of Document Pairs',
                 font: {
-                    size: 14,
-                    family: 'Arial, sans-serif'
+                    size: 16,
+                    family: 'Arial, sans-serif',
+                    color: '#555'
                 }
             },
-            ticksuffix: '%'
+            ticksuffix: '%',
+            gridcolor: 'rgba(200, 200, 200, 0.2)',
+            zerolinecolor: 'rgba(0, 0, 0, 0.2)'
         },
         legend: {
             orientation: 'h',
-            y: -0.2
+            y: -0.2,
+            x: 0.5,
+            xanchor: 'center',
+            bgcolor: 'rgba(255, 255, 255, 0.7)',
+            bordercolor: 'rgba(0, 0, 0, 0.1)',
+            borderwidth: 1
         },
         barmode: 'group',
-        plot_bgcolor: '#f8f9fa',
-        paper_bgcolor: '#f8f9fa',
+        plot_bgcolor: 'rgba(240, 245, 250, 0.95)',
+        paper_bgcolor: 'rgba(240, 245, 250, 0.9)',
         margin: {
-            l: 50,
+            l: 60,
             r: 50,
             b: 100,
-            t: 70,
+            t: 80,
             pad: 4
         },
         annotations: [
@@ -2959,16 +3357,79 @@ function renderCosineDistribution(data) {
                 borderpad: 4,
                 font: {
                     size: 12,
+                    color: '#444',
                     family: 'Arial, sans-serif'
                 }
+            },
+            {
+                x: peakRange,
+                y: peakPercentage,
+                text: `Peak: ${peakPercentage.toFixed(1)}%`,
+                showarrow: true,
+                arrowhead: 2,
+                arrowsize: 1,
+                arrowwidth: 1.5,
+                arrowcolor: '#9C27B0',
+                ax: 0,
+                ay: -40,
+                font: {
+                    color: '#9C27B0',
+                    size: 13
+                },
+                bgcolor: 'rgba(255, 255, 255, 0.9)',
+                bordercolor: '#9C27B0',
+                borderwidth: 1,
+                borderpad: 3
+            },
+            {
+                xref: 'paper',
+                yref: 'paper',
+                x: 0.99,
+                y: 0.02,
+                text: 'Click bars for details',
+                showarrow: false,
+                font: {
+                    size: 11,
+                    color: '#777',
+                    italic: true,
+                    family: 'Arial, sans-serif'
+                }
+            }
+        ],
+        // Add a subtle gradient overlay
+        shapes: [
+            {
+                type: 'rect',
+                xref: 'paper',
+                yref: 'paper',
+                x0: 0,
+                y0: 0,
+                x1: 1,
+                y1: 1,
+                fillcolor: 'rgba(255, 255, 255, 0)',
+                line: {
+                    width: 0
+                },
+                layer: 'below'
             }
         ]
     };
     
-    // Create the plot
-    Plotly.newPlot(plotDiv, [trace, smoothTrace], layout, {responsive: true});
+    // Create the plot with enhanced config
+    Plotly.newPlot(plotDiv, [trace, smoothTrace, markerTrace], layout, {
+        responsive: true,
+        displayModeBar: true,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+        toImageButtonOptions: {
+            format: 'png',
+            filename: 'cosine_similarity_distribution',
+            height: 500,
+            width: 800,
+            scale: 2
+        }
+    });
     
-    // Add percentage labels on top of bars
+    // Add percentage labels on top of bars with improved style
     const barLabels = data.percentages.map((percentage, i) => {
         if (percentage > 2) {  // Only add labels for bars with significant percentage
             return {
@@ -2978,9 +3439,14 @@ function renderCosineDistribution(data) {
                 showarrow: false,
                 font: {
                     size: 11,
-                    color: 'black',
-                    family: 'Arial, sans-serif'
+                    color: '#333',
+                    family: 'Arial, sans-serif',
+                    weight: 'bold'
                 },
+                bgcolor: 'rgba(255, 255, 255, 0.7)',
+                bordercolor: 'rgba(0, 0, 0, 0.1)',
+                borderwidth: 1,
+                borderpad: 2,
                 yshift: 10
             };
         }
@@ -2990,4 +3456,664 @@ function renderCosineDistribution(data) {
     if (barLabels.length > 0) {
         Plotly.update(plotDiv, {}, {annotations: layout.annotations.concat(barLabels)});
     }
+    
+    // Add click event for interactivity
+    plotDiv.on('plotly_click', function(data) {
+        if (!data.points[0] || data.points[0].data.type !== 'bar') return;
+        
+        const point = data.points[0];
+        const rangeLabel = point.x;
+        const percentage = point.y;
+        const count = point.text;
+        
+        // Create an analysis of what this range means
+        let interpretation = '';
+        if (rangeLabel.includes('0.8 -') || rangeLabel.includes('0.9 -')) {
+            interpretation = 'High similarity range - documents in this range are very closely related and may contain similar concepts or duplicate content.';
+        } else if (rangeLabel.includes('0.6 -') || rangeLabel.includes('0.7 -')) {
+            interpretation = 'Medium-high similarity - documents share significant conceptual overlap.';
+        } else if (rangeLabel.includes('0.4 -') || rangeLabel.includes('0.5 -')) {
+            interpretation = 'Medium similarity - documents share some related concepts but have distinct content.';
+        } else if (rangeLabel.includes('0.2 -') || rangeLabel.includes('0.3 -')) {
+            interpretation = 'Low-medium similarity - documents are mostly different with minimal concept overlap.';
+        } else {
+            interpretation = 'Low similarity - documents are likely unrelated or addressing completely different topics.';
+        }
+        
+        // Create and display a tooltip
+        let infoContent = `
+            <div style="font-family:Arial; padding:10px;">
+                <h6 style="margin-top:0;">Similarity Range Analysis</h6>
+                <p><b>Range:</b> ${rangeLabel}</p>
+                <p><b>Percentage:</b> ${percentage.toFixed(2)}% of document pairs</p>
+                <p><b>Count:</b> ${count} document pairs</p>
+                <p><b>Interpretation:</b> ${interpretation}</p>
+            </div>
+        `;
+        
+        // Use a custom tooltip/modal implementation
+        let infoBox = document.getElementById('distribution-info-box');
+        if (!infoBox) {
+            infoBox = document.createElement('div');
+            infoBox.id = 'distribution-info-box';
+            infoBox.style.cssText = `
+                position: absolute;
+                max-width: 300px;
+                background: white;
+                border-radius: 5px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                z-index: 1000;
+                display: none;
+            `;
+            document.body.appendChild(infoBox);
+        }
+        
+        // Position near the click but ensure it's visible
+        const rect = plotDiv.getBoundingClientRect();
+        infoBox.style.left = (rect.left + point.xaxis.d2p(point.x) + window.scrollX + 10) + 'px';
+        infoBox.style.top = (rect.top + point.yaxis.d2p(point.y) + window.scrollY - 100) + 'px';
+        infoBox.innerHTML = infoContent;
+        infoBox.style.display = 'block';
+        
+        // Close on click outside
+        const closeInfoBox = function(e) {
+            if (e.target !== infoBox && !infoBox.contains(e.target)) {
+                infoBox.style.display = 'none';
+                document.removeEventListener('click', closeInfoBox);
+            }
+        };
+        
+        // Add a small delay to prevent immediate closure
+        setTimeout(() => {
+            document.addEventListener('click', closeInfoBox);
+        }, 100);
+    });
+}
+
+// Retrieval metrics state variables
+// (no global variables needed after simplification)
+
+// Initialize event listeners for retrieval metrics
+function initRetrievalMetrics(className) {
+    // Run analysis button
+    elements.runRetrievalMetricsBtn.addEventListener('click', () => {
+        runRetrievalMetricsAnalysis(className);
+    });
+}
+
+// Run retrieval metrics analysis
+async function runRetrievalMetricsAnalysis(className) {
+    // Get the query and max K value
+    const query = elements.retrievalQuery.value.trim();
+    const maxK = parseInt(elements.retrievalMaxK.value);
+    
+    // Validate inputs
+    if (!query) {
+        alert('Please enter a search query');
+        return;
+    }
+    
+    if (isNaN(maxK) || maxK < 1 || maxK > 100) {
+        alert('Please enter a valid max K value between 1 and 100');
+        return;
+    }
+    
+    // Show loading state
+    elements.retrievalInfo.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><div>Analyzing retrieval metrics... This may take a moment.</div></div>';
+    elements.retrievalMetricsResults.style.display = 'block';
+    
+    try {
+        // Call the API to analyze retrieval metrics
+        const response = await fetchAPI(`/classes/${className}/retrieval-metrics`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                query: query,
+                max_k: maxK
+            })
+        });
+        
+        if (response.status === 'error') {
+            elements.retrievalInfo.innerHTML = `<div class="alert alert-danger">${response.message}</div>`;
+            return;
+        }
+        
+        // Display info about the analysis
+        elements.retrievalInfo.innerHTML = `
+            <p>Query: <strong>${response.query}</strong></p>
+            <p>Analysis metrics for k values from 1 to ${response.max_k}</p>
+            <p>Using ${response.relevant_docs_count} randomly selected relevant documents from ${response.total_results_count} search results.</p>
+            <p class="mb-0 small text-muted"><i>Note: For demonstration purposes, relevant documents are randomly selected with a fixed seed (42) for reproducibility.</i></p>
+        `;
+        
+        // Render the main metrics plot
+        renderRetrievalMainPlot(response);
+        
+        // Render the radar chart
+        renderRetrievalRadarPlot(response.radar_data);
+        
+        // Render bar chart
+        renderRetrievalBarPlot(response.bar_chart_data);
+        
+        // Render heatmap
+        renderRetrievalHeatmapPlot(response.heatmap_data);
+        
+        // Render document relevance plot
+        renderRetrievalDocsPlot(response.retrieval_data);
+        
+    } catch (error) {
+        console.error('Error during retrieval metrics analysis:', error);
+        let errorMessage = 'Unknown error';
+        
+        if (error.message) {
+            errorMessage = error.message;
+        } else if (typeof error === 'object') {
+            errorMessage = JSON.stringify(error);
+        }
+        
+        elements.retrievalInfo.innerHTML = `<div class="alert alert-danger">Error during analysis: ${errorMessage}</div>`;
+    }
+}
+
+// Function to render the main metrics plot
+function renderRetrievalMainPlot(data) {
+    const plotDiv = elements.retrievalMainPlot;
+    
+    // Create traces for precision, recall, and F1
+    const tracePrecision = {
+        x: data.k_values,
+        y: data.precision_at_k,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Precision@K',
+        line: {
+            width: 3,
+            color: '#4287f5', // Blue
+        },
+        marker: {
+            size: 8,
+            color: '#4287f5'
+        }
+    };
+    
+    const traceRecall = {
+        x: data.k_values,
+        y: data.recall_at_k,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Recall@K',
+        line: {
+            width: 3,
+            color: '#f54242', // Red
+        },
+        marker: {
+            size: 8,
+            color: '#f54242'
+        }
+    };
+    
+    const traceF1 = {
+        x: data.k_values,
+        y: data.f1_at_k,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'F1 Score@K',
+        line: {
+            width: 3,
+            color: '#42f54b', // Green
+        },
+        marker: {
+            size: 8,
+            color: '#42f54b'
+        }
+    };
+    
+    // Add shapes for max points
+    const maxPrecision = data.statistics.max_precision;
+    const maxRecall = data.statistics.max_recall;
+    const maxF1 = data.statistics.max_f1;
+    
+    // Create layout with annotations for max values
+    const layout = {
+        title: {
+            text: 'Retrieval Metrics at Different K Values',
+            font: {
+                size: 18,
+                family: 'Arial, sans-serif',
+                weight: 'bold'
+            }
+        },
+        xaxis: {
+            title: {
+                text: 'K (Number of Retrieved Documents)',
+                font: {
+                    size: 14,
+                    family: 'Arial, sans-serif'
+                }
+            },
+            tickmode: 'linear',
+            tick0: 1,
+            dtick: Math.max(1, Math.floor(data.max_k / 10))
+        },
+        yaxis: {
+            title: {
+                text: 'Score',
+                font: {
+                    size: 14,
+                    family: 'Arial, sans-serif'
+                }
+            },
+            range: [0, 1.05]
+        },
+        legend: {
+            x: 0.5,
+            xanchor: 'center',
+            y: 1.15,
+            orientation: 'h'
+        },
+        margin: {
+            l: 50,
+            r: 30,
+            b: 50,
+            t: 80,
+            pad: 4
+        },
+        annotations: [
+            {
+                x: maxPrecision.at_k,
+                y: maxPrecision.value,
+                text: `Max Precision: ${maxPrecision.value.toFixed(3)} at K=${maxPrecision.at_k}`,
+                showarrow: true,
+                arrowhead: 2,
+                arrowsize: 1,
+                arrowwidth: 2,
+                arrowcolor: '#4287f5',
+                ax: 40,
+                ay: -40,
+                bgcolor: 'rgba(255, 255, 255, 0.8)',
+                bordercolor: '#4287f5',
+                borderwidth: 2,
+                borderpad: 4,
+                font: { color: '#4287f5' }
+            },
+            {
+                x: maxRecall.at_k,
+                y: maxRecall.value,
+                text: `Max Recall: ${maxRecall.value.toFixed(3)} at K=${maxRecall.at_k}`,
+                showarrow: true,
+                arrowhead: 2,
+                arrowsize: 1,
+                arrowwidth: 2,
+                arrowcolor: '#f54242',
+                ax: -40,
+                ay: -40,
+                bgcolor: 'rgba(255, 255, 255, 0.8)',
+                bordercolor: '#f54242',
+                borderwidth: 2,
+                borderpad: 4,
+                font: { color: '#f54242' }
+            },
+            {
+                x: maxF1.at_k,
+                y: maxF1.value,
+                text: `Max F1: ${maxF1.value.toFixed(3)} at K=${maxF1.at_k}`,
+                showarrow: true,
+                arrowhead: 2,
+                arrowsize: 1,
+                arrowwidth: 2,
+                arrowcolor: '#42f54b',
+                ax: 0,
+                ay: 40,
+                bgcolor: 'rgba(255, 255, 255, 0.8)',
+                bordercolor: '#42f54b',
+                borderwidth: 2,
+                borderpad: 4,
+                font: { color: '#42f54b' }
+            }
+        ],
+        shapes: [{
+            type: 'rect',
+            xref: 'paper',
+            yref: 'paper',
+            x0: 0,
+            y0: 0,
+            x1: 1,
+            y1: 1,
+            line: {
+                width: 0
+            },
+            fillcolor: '#f8f9fa',
+            opacity: 0.5
+        }],
+        plot_bgcolor: '#f8f9fa',
+        paper_bgcolor: '#f8f9fa'
+    };
+    
+    // Create the plot
+    Plotly.newPlot(plotDiv, [tracePrecision, traceRecall, traceF1], layout, {responsive: true});
+}
+
+// Function to render the radar chart
+function renderRetrievalRadarPlot(radarData) {
+    const plotDiv = elements.retrievalRadarPlot;
+    
+    // Prepare the data
+    const metrics = ['Avg Precision', 'Avg Recall', 'Avg F1', 'Overall Avg', 'Max Precision', 'Max Recall'];
+    
+    // Need to close the loop for the radar chart
+    const values = [...radarData, radarData[0]];
+    
+    // Prepare angles for radar chart
+    const angles = metrics.map((_, i) => (i / metrics.length) * 2 * Math.PI);
+    angles.push(angles[0]); // Close the loop
+    
+    // Create the trace
+    const trace = {
+        type: 'scatterpolar',
+        r: values,
+        theta: [...metrics, metrics[0]], // Need to repeat the first label
+        fill: 'toself',
+        line: {
+            color: '#a142f5' // Purple
+        },
+        fillcolor: 'rgba(161, 66, 245, 0.3)'
+    };
+    
+    // Create the layout
+    const layout = {
+        polar: {
+            radialaxis: {
+                visible: true,
+                range: [0, 1]
+            }
+        },
+        title: {
+            text: 'Metrics Overview',
+            font: {
+                size: 16,
+                family: 'Arial, sans-serif',
+                weight: 'bold'
+            }
+        },
+        margin: {
+            l: 40,
+            r: 40,
+            b: 40,
+            t: 50,
+            pad: 0
+        },
+        paper_bgcolor: '#f8f9fa'
+    };
+    
+    // Create the plot
+    Plotly.newPlot(plotDiv, [trace], layout, {responsive: true});
+}
+
+// Function to render the bar chart
+function renderRetrievalBarPlot(data) {
+    const plotDiv = elements.retrievalBarPlot;
+    
+    // Create traces for precision, recall, and F1
+    const tracePrecision = {
+        x: data.k_values.map(k => `K=${k}`),
+        y: data.precision,
+        type: 'bar',
+        name: 'Precision',
+        marker: {
+            color: '#4287f5',
+            line: {
+                color: 'white',
+                width: 1
+            }
+        }
+    };
+    
+    const traceRecall = {
+        x: data.k_values.map(k => `K=${k}`),
+        y: data.recall,
+        type: 'bar',
+        name: 'Recall',
+        marker: {
+            color: '#f54242',
+            line: {
+                color: 'white',
+                width: 1
+            }
+        }
+    };
+    
+    const traceF1 = {
+        x: data.k_values.map(k => `K=${k}`),
+        y: data.f1,
+        type: 'bar',
+        name: 'F1 Score',
+        marker: {
+            color: '#42f54b',
+            line: {
+                color: 'white',
+                width: 1
+            }
+        }
+    };
+    
+    // Create the layout
+    const layout = {
+        title: {
+            text: 'Comparison at Key K Values',
+            font: {
+                size: 16,
+                family: 'Arial, sans-serif',
+                weight: 'bold'
+            }
+        },
+        xaxis: {
+            title: {
+                text: 'K Value',
+                font: {
+                    size: 12,
+                    family: 'Arial, sans-serif'
+                }
+            }
+        },
+        yaxis: {
+            title: {
+                text: 'Score',
+                font: {
+                    size: 12,
+                    family: 'Arial, sans-serif'
+                }
+            },
+            range: [0, 1]
+        },
+        legend: {
+            orientation: 'h',
+            y: -0.2
+        },
+        barmode: 'group',
+        plot_bgcolor: '#f8f9fa',
+        paper_bgcolor: '#f8f9fa',
+        margin: {
+            l: 50,
+            r: 30,
+            b: 80,
+            t: 50,
+            pad: 4
+        }
+    };
+    
+    // Create the plot
+    Plotly.newPlot(plotDiv, [tracePrecision, traceRecall, traceF1], layout, {responsive: true});
+}
+
+// Function to render the heatmap
+function renderRetrievalHeatmapPlot(data) {
+    const plotDiv = elements.retrievalHeatmapPlot;
+    
+    // Prepare data for heatmap
+    const heatmapData = [
+        data.precision,
+        data.recall,
+        data.f1
+    ];
+    
+    // Create the trace
+    const trace = {
+        z: heatmapData,
+        x: data.k_values,
+        y: ['Precision', 'Recall', 'F1'],
+        type: 'heatmap',
+        colorscale: [
+            [0, 'rgb(247, 251, 255)'],
+            [0.1, 'rgb(222, 235, 247)'],
+            [0.2, 'rgb(198, 219, 239)'],
+            [0.3, 'rgb(158, 202, 225)'],
+            [0.4, 'rgb(107, 174, 214)'],
+            [0.5, 'rgb(66, 146, 198)'],
+            [0.6, 'rgb(33, 113, 181)'],
+            [0.7, 'rgb(8, 81, 156)'],
+            [0.8, 'rgb(8, 48, 107)'],
+            [1, 'rgb(8, 24, 58)']
+        ],
+        hoverongaps: false,
+        text: heatmapData.map(row => row.map(val => val.toFixed(3))),
+        texttemplate: '%{text}',
+        showscale: false
+    };
+    
+    // Create the layout
+    const layout = {
+        title: {
+            text: 'Metrics Heatmap',
+            font: {
+                size: 16,
+                family: 'Arial, sans-serif',
+                weight: 'bold'
+            }
+        },
+        xaxis: {
+            title: {
+                text: 'K Value',
+                font: {
+                    size: 12,
+                    family: 'Arial, sans-serif'
+                }
+            },
+            tickmode: 'linear',
+            tick0: 1,
+            dtick: Math.max(1, Math.floor(data.k_values.length / 10))
+        },
+        margin: {
+            l: 80,
+            r: 30,
+            b: 50,
+            t: 50,
+            pad: 4
+        },
+        plot_bgcolor: '#f8f9fa',
+        paper_bgcolor: '#f8f9fa'
+    };
+    
+    // Create the plot
+    Plotly.newPlot(plotDiv, [trace], layout, {responsive: true});
+}
+
+// Function to render the document relevance plot
+function renderRetrievalDocsPlot(data) {
+    const plotDiv = elements.retrievalDocsPlot;
+    
+    // Prepare document names
+    const docLabels = [];
+    for (let i = 0; i < data.docs.length; i++) {
+        const doc = data.docs[i];
+        let label = '';
+        
+        // Create a label from the first 2 properties
+        const props = Object.entries(doc);
+        if (props.length > 0) {
+            const [key1, val1] = props[0];
+            label = `${key1}: ${val1}`;
+            
+            if (props.length > 1) {
+                const [key2, val2] = props[1];
+                label += `, ${key2}: ${val2}`;
+            }
+            
+            if (props.length > 2) {
+                label += '...';
+            }
+        } else {
+            label = `Doc ${i+1}`;
+        }
+        
+        if (label.length > 30) {
+            label = label.substring(0, 27) + '...';
+        }
+        
+        docLabels.push(label);
+    }
+    
+    // Prepare colors based on relevance
+    const barColors = data.relevant.map(rel => rel ? '#42f5d1' : '#f5d142'); // Teal for relevant, yellow for not
+    
+    // Create the trace
+    const trace = {
+        x: docLabels,
+        y: data.certainty,
+        type: 'bar',
+        marker: {
+            color: barColors,
+            line: {
+                color: 'white',
+                width: 1
+            }
+        },
+        text: data.relevant.map(rel => rel ? '✓ Relevant' : '✗ Not Relevant'),
+        hovertemplate: '<b>%{x}</b><br>Certainty: %{y:.4f}<br>%{text}<extra></extra>'
+    };
+    
+    // Create the layout
+    const layout = {
+        title: {
+            text: 'Document Relevance and Certainty Scores',
+            font: {
+                size: 16,
+                family: 'Arial, sans-serif',
+                weight: 'bold'
+            }
+        },
+        xaxis: {
+            title: {
+                text: 'Retrieved Documents',
+                font: {
+                    size: 12,
+                    family: 'Arial, sans-serif'
+                }
+            },
+            tickangle: -45
+        },
+        yaxis: {
+            title: {
+                text: 'Certainty Score',
+                font: {
+                    size: 12,
+                    family: 'Arial, sans-serif'
+                }
+            },
+            range: [0, 1]
+        },
+        margin: {
+            l: 50,
+            r: 30,
+            b: 120,
+            t: 50,
+            pad: 4
+        },
+        plot_bgcolor: '#f8f9fa',
+        paper_bgcolor: '#f8f9fa'
+    };
+    
+    // Create the plot
+    Plotly.newPlot(plotDiv, [trace], layout, {responsive: true});
 }

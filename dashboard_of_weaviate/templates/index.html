@@ -478,51 +478,172 @@
                                 
                                 <div class="mt-4">
                                     <h6>Class or Collection Validity Check:</h6>
-                                    <div class="row mb-3">
-                                        <div class="col-md-6">
-                                            <div class="d-flex">
-                                                <button type="button" class="btn btn-outline-primary me-2" id="runCosineSimilarityBtn">
-                                                    <i class="bi bi-graph-up"></i> STS through Cosine
-                                                </button>
-                                                <div class="input-group" style="max-width: 180px;">
-                                                    <span class="input-group-text">Sample</span>
-                                                    <input type="number" class="form-control" id="cosineSampleSize" value="100" min="10" max="10000">
+                                    <ul class="nav nav-tabs" id="analysisTypeTabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="cosine-similarity-tab" data-bs-toggle="tab" data-bs-target="#cosine-similarity" type="button" role="tab" aria-controls="cosine-similarity" aria-selected="true">
+                                                STS through Cosine
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="retrieval-metrics-tab" data-bs-toggle="tab" data-bs-target="#retrieval-metrics" type="button" role="tab" aria-controls="retrieval-metrics" aria-selected="false">
+                                                Retrieval Metrics
+                                            </button>
+                                        </li>
+                                    </ul>
+                                    
+                                    <!-- Tab content -->
+                                    <div class="tab-content mt-3" id="analysisTypeContent">
+                                        <!-- Cosine Similarity Tab -->
+                                        <div class="tab-pane fade show active" id="cosine-similarity" role="tabpanel" aria-labelledby="cosine-similarity-tab">
+                                            <div class="row mb-3">
+                                                <div class="col-md-6">
+                                                    <div class="input-group">
+                                                        <span class="input-group-text">Sample Size</span>
+                                                        <input type="number" id="cosineSampleSize" class="form-control" value="100" min="10" max="10000">
+                                                        <button class="btn btn-primary" id="runCosineSimilarityBtn">
+                                                            <i class="bi bi-play-fill"></i> Analyze
+                                                        </button>
+                                                    </div>
+                                                    <small class="form-text text-muted">Number of objects to sample for analysis (10-10000).</small>
+                                                </div>
+                                                
+                                                <div class="col-md-6">
+                                                    <div class="alert alert-info">
+                                                        <h6><i class="bi bi-info-circle"></i> About STS through Cosine</h6>
+                                                        <p class="mb-1">This analysis evaluates semantic similarity distribution:</p>
+                                                        <ul class="mb-0 small">
+                                                            <li><b>Cosine Similarity</b>: Measures how similar vectors are regardless of magnitude</li>
+                                                            <li><b>Distribution</b>: Reveals how semantic relationships are clustered</li>
+                                                            <li><b>Statistics</b>: Quantifies average/median similarities across document pairs</li>
+                                                        </ul>
+                                                        <p class="mt-2 mb-0 small"><i>Higher similarity between unrelated documents may indicate poor embedding quality or overlapping vector space.</i></p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="cosineSimilarityResults" style="display: none;">
+                                                <h6>Cosine Similarity Analysis:</h6>
+                                                <div class="row">
+                                                    <div class="col-md-12">
+                                                        <div class="alert alert-info" id="cosineInfo"></div>
+                                                    </div>
+                                                </div>
+                                                <div class="row mb-4">
+                                                    <div class="col-md-12">
+                                                        <div id="cosineHistogramPlot" style="height: 400px;"></div>
+                                                    </div>
+                                                </div>
+                                                <div class="row mb-4">
+                                                    <div class="col-md-12">
+                                                        <div id="cosineDistributionPlot" style="height: 400px;"></div>
+                                                    </div>
+                                                </div>
+                                                <div class="row">
+                                                    <div class="col-md-12">
+                                                        <h6>Statistics:</h6>
+                                                        <div class="table-responsive">
+                                                            <table class="table table-sm table-bordered" id="cosineStatsTable">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Metric</th>
+                                                                        <th>Value</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    <!-- Stats will be added here -->
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div id="cosineSimilarityResults" style="display: none;">
-                                        <h6>Cosine Similarity Analysis:</h6>
-                                        <div class="row">
-                                            <div class="col-md-12">
-                                                <div class="alert alert-info" id="cosineInfo"></div>
+                                        
+                                        <!-- Retrieval Metrics Tab -->
+                                        <div class="tab-pane fade" id="retrieval-metrics" role="tabpanel" aria-labelledby="retrieval-metrics-tab">
+                                            <div class="row mb-3">
+                                                <div class="col-md-6">
+                                                    <div class="form-group mb-3">
+                                                        <label for="retrievalQuery">Search Query</label>
+                                                        <input type="text" id="retrievalQuery" class="form-control" placeholder="Enter a search query">
+                                                        <small class="form-text text-muted">Query to evaluate retrieval metrics for.</small>
+                                                    </div>
+                                                    
+                                                    <div class="form-group mb-3">
+                                                        <label for="retrievalMaxK">Max K Value</label>
+                                                        <input type="number" id="retrievalMaxK" class="form-control" value="10" min="1" max="100">
+                                                        <small class="form-text text-muted">Maximum k value for metrics calculation (1-100).</small>
+                                                    </div>
+
+                                                    <button id="runRetrievalMetricsBtn" class="btn btn-primary">
+                                                        <i class="bi bi-play-fill"></i> Analyze Retrieval Metrics
+                                                    </button>
+                                                    <small class="d-block mt-2 text-muted">Note: Relevant documents will be automatically simulated for demonstration purposes.</small>
+                                                </div>
+                                                
+                                                <div class="col-md-6">
+                                                    <div class="alert alert-info">
+                                                        <h6><i class="bi bi-info-circle"></i> About Retrieval Metrics</h6>
+                                                        <p class="mb-1">This analysis evaluates search quality using:</p>
+                                                        <ul class="mb-0 small">
+                                                            <li><b>Precision@k</b>: Fraction of retrieved documents that are relevant</li>
+                                                            <li><b>Recall@k</b>: Fraction of relevant documents that are retrieved</li>
+                                                            <li><b>F1 Score@k</b>: Harmonic mean of precision and recall</li>
+                                                        </ul>
+                                                        <p class="mt-2 mb-0 small"><i>For demonstration, a subset of results will be randomly selected as "relevant" with a fixed seed for reproducibility.</i></p>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div class="row mb-4">
-                                            <div class="col-md-12">
-                                                <div id="cosineHistogramPlot" style="height: 400px;"></div>
-                                            </div>
-                                        </div>
-                                        <div class="row mb-4">
-                                            <div class="col-md-12">
-                                                <div id="cosineDistributionPlot" style="height: 400px;"></div>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-12">
-                                                <h6>Statistics:</h6>
-                                                <div class="table-responsive">
-                                                    <table class="table table-sm table-bordered" id="cosineStatsTable">
-                                                        <thead>
-                                                            <tr>
-                                                                <th>Metric</th>
-                                                                <th>Value</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            <!-- Stats will be added here -->
-                                                        </tbody>
-                                                    </table>
+                                            
+                                            <div id="retrievalMetricsResults" style="display: none;">
+                                                <div id="retrievalInfo" class="alert alert-info my-3"></div>
+                                                
+                                                <div class="row">
+                                                    <div class="col-lg-8">
+                                                        <div class="card mb-3">
+                                                            <div class="card-header">Metrics at K</div>
+                                                            <div class="card-body">
+                                                                <div id="retrievalMainPlot" style="height: 400px;"></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-lg-4">
+                                                        <div class="card mb-3">
+                                                            <div class="card-header">Overview</div>
+                                                            <div class="card-body">
+                                                                <div id="retrievalRadarPlot" style="height: 400px;"></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <div class="card mb-3">
+                                                            <div class="card-header">Comparison at Key K Values</div>
+                                                            <div class="card-body">
+                                                                <div id="retrievalBarPlot" style="height: 300px;"></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="card mb-3">
+                                                            <div class="card-header">Metrics Heatmap</div>
+                                                            <div class="card-body">
+                                                                <div id="retrievalHeatmapPlot" style="height: 300px;"></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="row">
+                                                    <div class="col-12">
+                                                        <div class="card mb-3">
+                                                            <div class="card-header">Document Relevance</div>
+                                                            <div class="card-body">
+                                                                <div id="retrievalDocsPlot" style="height: 300px;"></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
