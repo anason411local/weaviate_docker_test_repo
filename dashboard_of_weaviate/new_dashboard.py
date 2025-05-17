@@ -32,6 +32,12 @@ import string
 import httpx
 import numpy as np
 import google.generativeai as genai  # Add this import for the Gemini API
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import plotly.io as pio
+from scipy.spatial.distance import cosine
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Import utility functions from the other files
 from weaviate_classes_objects_check import (
@@ -1790,6 +1796,245 @@ async def call_gemini_api(prompt, api_key, model="gemini-1.5-flash"):
             
     except Exception as e:
         return f"Error calling Gemini API: {str(e)}"
+
+# Add model for cosine similarity analysis request
+class CosineSimilarityRequest(BaseModel):
+    class_name: Optional[str] = Field(None, description="Name of the class to analyze (optional, taken from path)")
+    sample_size: int = Field(100, description="Number of objects to sample for analysis", ge=10, le=10000)
+
+# Add API endpoint for cosine similarity analysis
+@app.post("/api/classes/{class_name}/cosine-similarity")
+async def analyze_cosine_similarity(
+    class_name: str = Path(..., description="Name of the class to analyze"),
+    request: CosineSimilarityRequest = Body(...),
+):
+    """
+    Analyze the cosine similarity distribution of objects in a class.
+    This helps validate the quality of the vector embeddings.
+    """
+    try:
+        # Override request.class_name with the path parameter if it exists
+        # This ensures the path parameter takes precedence
+        
+        # Get sample objects with their vectors
+        limit = min(request.sample_size, 10000)  # Limit to 10,000 objects maximum
+        
+        # First get all property names
+        schema_response = requests.get(f"{WEAVIATE_URL}/v1/schema/{class_name}", headers=create_weaviate_headers())
+        if schema_response.status_code != 200:
+            raise HTTPException(status_code=schema_response.status_code, detail=f"Error getting schema for {class_name}")
+            
+        schema = schema_response.json()
+        properties = [prop.get("name") for prop in schema.get("properties", [])]
+        
+        # Create dynamic GraphQL query with all properties and include vectors
+        properties_query = " ".join(properties)
+        
+        graphql_query = {
+            "query": f"""
+            {{
+              Get {{
+                {class_name}(limit: {limit}) {{
+                  {properties_query}
+                  _additional {{
+                    id
+                    vector
+                  }}
+                }}
+              }}
+            }}
+            """
+        }
+        
+        # Execute the query
+        response = requests.post(
+            f"{WEAVIATE_URL}/v1/graphql",
+            headers=create_weaviate_headers(),
+            json=graphql_query
+        )
+        
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=f"Error fetching objects: {response.text}")
+            
+        result = response.json()
+        if "errors" in result:
+            raise HTTPException(status_code=400, detail=f"GraphQL errors: {result['errors']}")
+                
+        # Extract objects from response
+        objects = result.get("data", {}).get("Get", {}).get(class_name, [])
+        
+        if not objects:
+            return {
+                "status": "error",
+                "message": f"No objects found in class {class_name}"
+            }
+            
+        # Compute cosine similarities
+        documents_with_vectors = []
+        for obj in objects:
+            if "_additional" in obj and "vector" in obj["_additional"]:
+                documents_with_vectors.append(obj)
+        
+        if len(documents_with_vectors) < 2:
+            return {
+                "status": "error",
+                "message": f"Not enough objects with vectors found in class {class_name}"
+            }
+            
+        # Extract vectors and compute similarities
+        similarities = compute_cosine_similarities(documents_with_vectors)
+        
+        # Compute similarity statistics
+        stats = analyze_similarities_for_api(similarities)
+        
+        # Generate histogram data for Plotly
+        histogram_data = generate_histogram_data(similarities)
+        
+        # Generate distribution data for Plotly
+        distribution_data = generate_distribution_data(similarities)
+        
+        return {
+            "status": "success",
+            "class_name": class_name,
+            "sample_size": len(documents_with_vectors),
+            "total_pairs_analyzed": len(similarities),
+            "statistics": stats,
+            "histogram_data": histogram_data,
+            "distribution_data": distribution_data
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+def compute_cosine_similarities(documents):
+    """Compute pairwise cosine similarities between all document vectors using sklearn."""
+    if not documents:
+        return []
+    
+    # Extract vectors and ensure they all have the same dimension
+    vectors = []
+    valid_documents = []
+    
+    # First pass: determine the correct dimension
+    dimensions = []
+    for doc in documents:
+        vec = doc["_additional"]["vector"]
+        if isinstance(vec, list):
+            dimensions.append(len(vec))
+    
+    if not dimensions:
+        return []
+    
+    # Find the most common dimension
+    from collections import Counter
+    dimension_counts = Counter(dimensions)
+    correct_dim = dimension_counts.most_common(1)[0][0]
+    
+    # Second pass: only keep vectors with the correct dimension
+    for doc in documents:
+        vec = doc["_additional"]["vector"]
+        if isinstance(vec, list) and len(vec) == correct_dim:
+            vectors.append(vec)
+            valid_documents.append(doc)
+    
+    if not vectors:
+        return []
+    
+    # Convert to numpy arrays
+    vectors = np.array(vectors)
+    
+    # Compute cosine similarity matrix using sklearn
+    similarity_matrix = cosine_similarity(vectors)
+    
+    # Extract upper triangular part to get pairwise similarities (excluding self-comparisons)
+    n = len(vectors)
+    similarities = []
+    
+    for i in range(n):
+        for j in range(i+1, n):
+            similarities.append(similarity_matrix[i, j])
+    
+    return np.array(similarities)
+
+def analyze_similarities_for_api(similarities):
+    """Analyze the distribution of cosine similarities and return statistics without generating images."""
+    if len(similarities) == 0:
+        return {}
+    
+    # Compute statistics
+    stats = {
+        "count": len(similarities),
+        "mean": float(np.mean(similarities)),
+        "std": float(np.std(similarities)),
+        "min": float(np.min(similarities)),
+        "25%": float(np.percentile(similarities, 25)),
+        "median": float(np.median(similarities)),
+        "75%": float(np.percentile(similarities, 75)),
+        "90%": float(np.percentile(similarities, 90)),
+        "95%": float(np.percentile(similarities, 95)),
+        "99%": float(np.percentile(similarities, 99)),
+        "max": float(np.max(similarities))
+    }
+    
+    return stats
+
+def generate_histogram_data(similarities, bins=50):
+    """Generate histogram data for Plotly visualization."""
+    if len(similarities) == 0:
+        return {}
+    
+    hist, bin_edges = np.histogram(similarities, bins=bins)
+    
+    # Create bin centers for x-axis
+    bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+    
+    data = {
+        "x": bin_centers.tolist(),
+        "y": hist.tolist(),
+        "bin_edges": bin_edges.tolist(),
+        "mean": float(np.mean(similarities)),
+        "median": float(np.median(similarities)),
+        "q1": float(np.percentile(similarities, 25)),
+        "q3": float(np.percentile(similarities, 75))
+    }
+    
+    return data
+
+def generate_distribution_data(similarities, num_bins=12):
+    """Generate distribution data for Plotly visualization."""
+    if len(similarities) == 0:
+        return {}
+    
+    total_count = len(similarities)
+    
+    # Create bins from min to max
+    min_val = np.min(similarities)
+    max_val = np.max(similarities)
+    
+    # Define bin edges
+    bin_edges = np.linspace(min_val, max_val, num_bins + 1)
+    
+    # Count frequencies
+    hist, _ = np.histogram(similarities, bins=bin_edges)
+    
+    # Convert to percentages
+    percentages = (hist / total_count) * 100
+    
+    # Create bin labels
+    bin_labels = [f"{bin_edges[i]:.2f} - {bin_edges[i+1]:.2f}" for i in range(len(bin_edges)-1)]
+    
+    data = {
+        "bin_labels": bin_labels,
+        "percentages": percentages.tolist(),
+        "counts": hist.tolist(),
+        "bin_edges": bin_edges.tolist(),
+        "total_count": total_count
+    }
+    
+    return data
 
 if __name__ == "__main__":
     import socket

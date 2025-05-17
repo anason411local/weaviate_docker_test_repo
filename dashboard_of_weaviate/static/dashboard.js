@@ -106,7 +106,16 @@ const elements = {
     dockerPassword: document.getElementById('password'),
     loginError: document.getElementById('loginError'),
     submitLoginBtn: document.getElementById('submitLoginBtn'),
-    geminiModel: document.getElementById('geminiModel')
+    geminiModel: document.getElementById('geminiModel'),
+    
+    // Cosine Similarity elements
+    cosineSampleSize: document.getElementById('cosineSampleSize'),
+    cosineInfo: document.getElementById('cosineInfo'),
+    cosineSimilarityResults: document.getElementById('cosineSimilarityResults'),
+    cosineStatsTable: document.getElementById('cosineStatsTable'),
+    cosineHistogramPlot: document.getElementById('cosineHistogramPlot'),
+    cosineDistributionPlot: document.getElementById('cosineDistributionPlot'),
+    runCosineSimilarityBtn: document.getElementById('runCosineSimilarityBtn')
 };
 
 // Current state
@@ -1224,6 +1233,11 @@ async function loadClassDetail(className) {
         
         // Show class info
         elements.classDetailInfo.style.display = 'block';
+        
+        // Add event listener for the cosine similarity button
+        document.getElementById('runCosineSimilarityBtn').addEventListener('click', function() {
+            runCosineSimilarityAnalysis(className);
+        });
         
     } catch (error) {
         console.error('Error loading class detail:', error);
@@ -2603,3 +2617,377 @@ function initDashboard() {
 
 // Start the dashboard when page is loaded
 document.addEventListener('DOMContentLoaded', initDashboard); 
+
+// Function to run cosine similarity analysis
+async function runCosineSimilarityAnalysis(className) {
+    // Get the sample size from the input
+    const sampleSize = parseInt(document.getElementById('cosineSampleSize').value);
+    
+    // Validate sample size
+    if (isNaN(sampleSize) || sampleSize < 10 || sampleSize > 10000) {
+        alert('Please enter a valid sample size between 10 and 10000');
+        return;
+    }
+    
+    // Show loading state
+    document.getElementById('cosineInfo').innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><div>Analyzing cosine similarity... This may take a moment.</div></div>';
+    document.getElementById('cosineSimilarityResults').style.display = 'block';
+    
+    try {
+        // Call the API to analyze cosine similarity
+        const response = await fetchAPI(`/classes/${className}/cosine-similarity`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                class_name: className,
+                sample_size: sampleSize
+            })
+        });
+        
+        if (response.status === 'error') {
+            document.getElementById('cosineInfo').innerHTML = `<div class="alert alert-danger">${response.message}</div>`;
+            return;
+        }
+        
+        // Display info about the analysis
+        document.getElementById('cosineInfo').innerHTML = `
+            <p>Analyzed ${response.sample_size} documents, resulting in ${response.total_pairs_analyzed} pairwise similarity comparisons.</p>
+        `;
+        
+        // Display statistics table
+        renderCosineStatistics(response.statistics);
+        
+        // Render the histogram
+        renderCosineHistogram(response.histogram_data);
+        
+        // Render the distribution chart
+        renderCosineDistribution(response.distribution_data);
+    } catch (error) {
+        console.error('Error during cosine similarity analysis:', error);
+        let errorMessage = 'Unknown error';
+        
+        if (error.message) {
+            errorMessage = error.message;
+        } else if (typeof error === 'object') {
+            errorMessage = JSON.stringify(error);
+        }
+        
+        document.getElementById('cosineInfo').innerHTML = `<div class="alert alert-danger">Error during analysis: ${errorMessage}</div>`;
+    }
+}
+
+// Function to render cosine similarity statistics table
+function renderCosineStatistics(stats) {
+    const tableBody = document.querySelector('#cosineStatsTable tbody');
+    tableBody.innerHTML = '';
+    
+    const rows = [
+        ['Count', stats.count],
+        ['Mean', stats.mean.toFixed(4)],
+        ['Median', stats.median.toFixed(4)],
+        ['Standard Deviation', stats.std.toFixed(4)],
+        ['Minimum', stats.min.toFixed(4)],
+        ['25th Percentile', stats['25%'].toFixed(4)],
+        ['75th Percentile', stats['75%'].toFixed(4)],
+        ['90th Percentile', stats['90%'].toFixed(4)],
+        ['95th Percentile', stats['95%'].toFixed(4)],
+        ['99th Percentile', stats['99%'].toFixed(4)],
+        ['Maximum', stats.max.toFixed(4)]
+    ];
+    
+    rows.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${row[0]}</td><td>${row[1]}</td>`;
+        tableBody.appendChild(tr);
+    });
+}
+
+// Function to render cosine similarity histogram using Plotly
+function renderCosineHistogram(data) {
+    const plotDiv = document.getElementById('cosineHistogramPlot');
+    
+    // Create the histogram trace
+    const trace = {
+        x: data.x,
+        y: data.y,
+        type: 'bar',
+        marker: {
+            color: data.x.map(value => {
+                // Create a color gradient
+                return `rgba(63, 81, 181, ${Math.min(value, 0.9)})`;
+            }),
+            line: {
+                color: 'white',
+                width: 1
+            }
+        },
+        name: 'Frequency'
+    };
+    
+    // Add vertical lines for statistics
+    const meanLine = {
+        type: 'line',
+        x0: data.mean,
+        x1: data.mean,
+        y0: 0,
+        y1: Math.max(...data.y) * 1.1,
+        line: {
+            color: '#F44336',
+            width: 2,
+            dash: 'solid'
+        },
+        name: `Mean: ${data.mean.toFixed(4)}`
+    };
+    
+    const medianLine = {
+        type: 'line',
+        x0: data.median,
+        x1: data.median,
+        y0: 0,
+        y1: Math.max(...data.y) * 1.1,
+        line: {
+            color: '#4CAF50',
+            width: 2,
+            dash: 'solid'
+        },
+        name: `Median: ${data.median.toFixed(4)}`
+    };
+    
+    const q1Line = {
+        type: 'line',
+        x0: data.q1,
+        x1: data.q1,
+        y0: 0,
+        y1: Math.max(...data.y) * 1.1,
+        line: {
+            color: '#9C27B0',
+            width: 2,
+            dash: 'dash'
+        },
+        name: `25th %: ${data.q1.toFixed(4)}`
+    };
+    
+    const q3Line = {
+        type: 'line',
+        x0: data.q3,
+        x1: data.q3,
+        y0: 0,
+        y1: Math.max(...data.y) * 1.1,
+        line: {
+            color: '#9C27B0',
+            width: 2,
+            dash: 'dash'
+        },
+        name: `75th %: ${data.q3.toFixed(4)}`
+    };
+    
+    // Create the layout
+    const layout = {
+        title: {
+            text: 'Cosine Similarity Distribution Histogram',
+            font: {
+                size: 18,
+                family: 'Arial, sans-serif',
+                weight: 'bold'
+            }
+        },
+        xaxis: {
+            title: {
+                text: 'Cosine Similarity',
+                font: {
+                    size: 14,
+                    family: 'Arial, sans-serif'
+                }
+            }
+        },
+        yaxis: {
+            title: {
+                text: 'Frequency',
+                font: {
+                    size: 14,
+                    family: 'Arial, sans-serif'
+                }
+            }
+        },
+        shapes: [meanLine, medianLine, q1Line, q3Line],
+        showlegend: false,
+        plot_bgcolor: '#f8f9fa',
+        paper_bgcolor: '#f8f9fa',
+        margin: {
+            l: 50,
+            r: 50,
+            b: 50,
+            t: 70,
+            pad: 4
+        },
+        annotations: [
+            {
+                x: data.mean,
+                y: Math.max(...data.y) * 1.05,
+                text: `Mean: ${data.mean.toFixed(4)}`,
+                showarrow: true,
+                arrowhead: 2,
+                arrowsize: 1,
+                arrowwidth: 1,
+                arrowcolor: '#F44336',
+                ax: 0,
+                ay: -40
+            },
+            {
+                x: data.median,
+                y: Math.max(...data.y) * 0.9,
+                text: `Median: ${data.median.toFixed(4)}`,
+                showarrow: true,
+                arrowhead: 2,
+                arrowsize: 1,
+                arrowwidth: 1,
+                arrowcolor: '#4CAF50',
+                ax: 0,
+                ay: -40
+            }
+        ]
+    };
+    
+    // Create the plot
+    Plotly.newPlot(plotDiv, [trace], layout, {responsive: true});
+}
+
+// Function to render cosine similarity distribution using Plotly
+function renderCosineDistribution(data) {
+    const plotDiv = document.getElementById('cosineDistributionPlot');
+    
+    // Create the bar chart trace
+    const trace = {
+        x: data.bin_labels,
+        y: data.percentages,
+        type: 'bar',
+        marker: {
+            color: 'rgba(63, 81, 181, 0.7)',
+            line: {
+                color: 'white',
+                width: 1.5
+            }
+        },
+        hovertemplate: 'Range: %{x}<br>' +
+                      'Percentage: %{y:.2f}%<br>' +
+                      'Count: %{text}<extra></extra>',
+        text: data.counts,
+        name: 'Percentage'
+    };
+    
+    // Add a smooth curve to visualize the trend
+    // First, we need to extract bin centers from the labels
+    const binCenters = data.bin_labels.map(label => {
+        const parts = label.split(' - ');
+        const min = parseFloat(parts[0]);
+        const max = parseFloat(parts[1]);
+        return (min + max) / 2;
+    });
+    
+    // Create a scatter trace with a smooth line
+    const smoothTrace = {
+        x: binCenters,
+        y: data.percentages,
+        type: 'scatter',
+        mode: 'lines',
+        line: {
+            color: '#FF4081',
+            width: 3,
+            shape: 'spline',
+            smoothing: 1.3
+        },
+        name: 'Trend'
+    };
+    
+    // Create the layout
+    const layout = {
+        title: {
+            text: 'Percentage-wise Cosine Similarity Distribution',
+            font: {
+                size: 18,
+                family: 'Arial, sans-serif',
+                weight: 'bold'
+            }
+        },
+        xaxis: {
+            title: {
+                text: 'Similarity Range',
+                font: {
+                    size: 14,
+                    family: 'Arial, sans-serif'
+                }
+            },
+            tickangle: -45
+        },
+        yaxis: {
+            title: {
+                text: 'Percentage of Document Pairs',
+                font: {
+                    size: 14,
+                    family: 'Arial, sans-serif'
+                }
+            },
+            ticksuffix: '%'
+        },
+        legend: {
+            orientation: 'h',
+            y: -0.2
+        },
+        barmode: 'group',
+        plot_bgcolor: '#f8f9fa',
+        paper_bgcolor: '#f8f9fa',
+        margin: {
+            l: 50,
+            r: 50,
+            b: 100,
+            t: 70,
+            pad: 4
+        },
+        annotations: [
+            {
+                xref: 'paper',
+                yref: 'paper',
+                x: 0.01,
+                y: 0.98,
+                text: `Total pairs: ${data.total_count}`,
+                showarrow: false,
+                bgcolor: 'rgba(255, 255, 255, 0.8)',
+                bordercolor: 'rgba(0, 0, 0, 0.1)',
+                borderwidth: 1,
+                borderpad: 4,
+                font: {
+                    size: 12,
+                    family: 'Arial, sans-serif'
+                }
+            }
+        ]
+    };
+    
+    // Create the plot
+    Plotly.newPlot(plotDiv, [trace, smoothTrace], layout, {responsive: true});
+    
+    // Add percentage labels on top of bars
+    const barLabels = data.percentages.map((percentage, i) => {
+        if (percentage > 2) {  // Only add labels for bars with significant percentage
+            return {
+                x: data.bin_labels[i],
+                y: percentage,
+                text: `${percentage.toFixed(1)}%`,
+                showarrow: false,
+                font: {
+                    size: 11,
+                    color: 'black',
+                    family: 'Arial, sans-serif'
+                },
+                yshift: 10
+            };
+        }
+        return null;
+    }).filter(label => label !== null);
+    
+    if (barLabels.length > 0) {
+        Plotly.update(plotDiv, {}, {annotations: layout.annotations.concat(barLabels)});
+    }
+}

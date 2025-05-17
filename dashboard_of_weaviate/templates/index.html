@@ -477,6 +477,59 @@
                                 </div>
                                 
                                 <div class="mt-4">
+                                    <h6>Class or Collection Validity Check:</h6>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <div class="d-flex">
+                                                <button type="button" class="btn btn-outline-primary me-2" id="runCosineSimilarityBtn">
+                                                    <i class="bi bi-graph-up"></i> STS through Cosine
+                                                </button>
+                                                <div class="input-group" style="max-width: 180px;">
+                                                    <span class="input-group-text">Sample</span>
+                                                    <input type="number" class="form-control" id="cosineSampleSize" value="100" min="10" max="10000">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="cosineSimilarityResults" style="display: none;">
+                                        <h6>Cosine Similarity Analysis:</h6>
+                                        <div class="row">
+                                            <div class="col-md-12">
+                                                <div class="alert alert-info" id="cosineInfo"></div>
+                                            </div>
+                                        </div>
+                                        <div class="row mb-4">
+                                            <div class="col-md-12">
+                                                <div id="cosineHistogramPlot" style="height: 400px;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="row mb-4">
+                                            <div class="col-md-12">
+                                                <div id="cosineDistributionPlot" style="height: 400px;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-12">
+                                                <h6>Statistics:</h6>
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-bordered" id="cosineStatsTable">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Metric</th>
+                                                                <th>Value</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <!-- Stats will be added here -->
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-4">
                                     <h6>Properties:</h6>
                                     <div id="classProperties">
                                         <!-- Properties will be added here -->
