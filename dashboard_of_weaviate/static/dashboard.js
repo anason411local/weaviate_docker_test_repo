@@ -19,6 +19,7 @@ const elements = {
     serverHost: document.getElementById('serverHost'),
     modulesInfo: document.getElementById('modulesInfo'),
     serverInfo: document.getElementById('serverInfo'),
+    dockerInfo: document.getElementById('dockerInfo'),
     
     totalClasses: document.getElementById('totalClasses'),
     totalObjects: document.getElementById('totalObjects'),
@@ -29,6 +30,7 @@ const elements = {
     refreshBtn: document.getElementById('refreshBtn'),
     inspectBtn: document.getElementById('inspectBtn'),
     createClassBtn: document.getElementById('createClassBtn'),
+    exportClassesBtn: document.getElementById('exportClassesBtn'),
     
     // Class detail elements
     classDetailTitle: document.getElementById('classDetailTitle'),
@@ -97,6 +99,14 @@ const elements = {
     updateClassSubmitBtn: document.getElementById('updateClassSubmitBtn'),
     updatePropContainer: document.getElementById('updatePropContainer'),
     updateClassSuccess: document.getElementById('updateClassSuccess'),
+    
+    // Docker Login Modal
+    dockerLoginModal: new bootstrap.Modal(document.getElementById('dockerLoginModal')),
+    dockerUsername: document.getElementById('username'),
+    dockerPassword: document.getElementById('password'),
+    loginError: document.getElementById('loginError'),
+    submitLoginBtn: document.getElementById('submitLoginBtn'),
+    geminiModel: document.getElementById('geminiModel')
 };
 
 // Current state
@@ -107,7 +117,8 @@ let state = {
     inspections: [],
     meta: {},
     classToDelete: null,
-    classToUpdate: null
+    classToUpdate: null,
+    isAuthenticated: false
 };
 
 // API request helper
@@ -191,6 +202,898 @@ async function loadDashboard() {
                 
                 elements.modulesInfo.innerHTML = modulesList || 'No modules found';
             }
+            
+            // Server details expandable section
+            const serverDetails = meta.meta;
+            let serverDetailsHtml = `
+                <div class="accordion mt-3" id="serverDetailsAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="serverDetailsHeading">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#serverDetailsCollapse" aria-expanded="false" 
+                                    aria-controls="serverDetailsCollapse">
+                                <i class="bi bi-info-circle me-2"></i> Detailed Server Information
+                            </button>
+                        </h2>
+                        <div id="serverDetailsCollapse" class="accordion-collapse collapse" 
+                             aria-labelledby="serverDetailsHeading" data-bs-parent="#serverDetailsAccordion">
+                            <div class="accordion-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <tbody>
+                                            <tr>
+                                                <th>Version</th>
+                                                <td>${serverDetails.version || 'Unknown'}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Hostname</th>
+                                                <td>${serverDetails.hostname || 'Unknown'}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Git Hash</th>
+                                                <td>${serverDetails.gitHash || 'Unknown'}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Architecture</th>
+                                                <td>${serverDetails.architecture || 'Unknown'}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>OS</th>
+                                                <td>${serverDetails.os || 'Unknown'}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Append server details to the server info section
+            const serverDetailsContainer = document.createElement('div');
+            serverDetailsContainer.innerHTML = serverDetailsHtml;
+            elements.serverInfo.appendChild(serverDetailsContainer);
+        }
+
+        // Fetch Docker container information
+        try {
+            const dockerInfo = await fetchAPI('/docker-info');
+            if (dockerInfo && dockerInfo.status === 'success' && dockerInfo.containers && dockerInfo.containers.length > 0) {
+                // Display Docker container information
+                let dockerHtml = `
+                    <div class="card mt-4">
+                        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                            <div><i class="bi bi-hdd-rack"></i> Docker Container Information</div>
+                            <button class="btn btn-sm btn-light refresh-docker-btn">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div id="dockerCpuGauge" class="gauge-container"></div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div id="dockerMemoryGauge" class="gauge-container"></div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-12">
+                                        <div id="dockerSystemInfo" class="system-info p-3 bg-light rounded">
+                                            <h6><i class="bi bi-info-circle"></i> System Information</h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm">
+                                                    <tbody>
+                                                        <tr>
+                                                            <th width="30%">Total Containers:</th>
+                                                            <td>${dockerInfo.containers.length}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Weaviate Version:</th>
+                                                            <td>${dockerInfo.containers[0].image.split(':')[1] || 'Unknown'}</td>
+                                                        </tr>
+                                                        ${dockerInfo.system ? `
+                                                        <tr>
+                                                            <th>Total System Containers:</th>
+                                                            <td>${dockerInfo.system.total_containers || 'Unknown'} (${dockerInfo.system.running_containers || 'Unknown'} running)</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Total Images:</th>
+                                                            <td>${dockerInfo.system.total_images || 'Unknown'}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Volumes:</th>
+                                                            <td>${dockerInfo.system.volumes || 'Unknown'}</td>
+                                                        </tr>
+                                                        ` : ''}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <nav>
+                                <div class="nav nav-tabs" id="docker-nav-tab" role="tablist">
+                                    <button class="nav-link active" id="docker-overview-tab" data-bs-toggle="tab" data-bs-target="#docker-overview" 
+                                            type="button" role="tab" aria-controls="docker-overview" aria-selected="true">
+                                        Overview
+                                    </button>
+                                    <button class="nav-link" id="docker-resources-tab" data-bs-toggle="tab" data-bs-target="#docker-resources" 
+                                            type="button" role="tab" aria-controls="docker-resources" aria-selected="false">
+                                        Resource Usage
+                                    </button>
+                                    <button class="nav-link" id="docker-network-tab" data-bs-toggle="tab" data-bs-target="#docker-network" 
+                                            type="button" role="tab" aria-controls="docker-network" aria-selected="false">
+                                        Network & I/O
+                                    </button>
+                                    <button class="nav-link" id="docker-details-tab" data-bs-toggle="tab" data-bs-target="#docker-details" 
+                                            type="button" role="tab" aria-controls="docker-details" aria-selected="false">
+                                        Container Details
+                                    </button>
+                                    <button class="nav-link" id="docker-logs-tab" data-bs-toggle="tab" data-bs-target="#docker-logs" 
+                                            type="button" role="tab" aria-controls="docker-logs" aria-selected="false">
+                                        Logs
+                                    </button>
+                                </div>
+                            </nav>
+                            <div class="tab-content p-3 border border-top-0 rounded-bottom" id="docker-nav-tabContent">
+                                <div class="tab-pane fade show active" id="docker-overview" role="tabpanel" aria-labelledby="docker-overview-tab">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead class="table-primary">
+                                                <tr>
+                                                    <th>Container</th>
+                                                    <th>Image</th>
+                                                    <th>Status</th>
+                                                    <th>CPU Usage</th>
+                                                    <th>Memory Usage</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                `;
+                
+                // Add container rows
+                dockerInfo.containers.forEach(container => {
+                    const cpuPercentage = parseFloat(container.cpu_usage) || 0;
+                    const memPercentage = parseFloat(container.memory_percent) || 0;
+                    
+                    let statusBadgeClass = 'bg-warning';
+                    if (container.status.includes('Up')) {
+                        statusBadgeClass = 'bg-success';
+                    } else if (container.status.includes('Exit')) {
+                        statusBadgeClass = 'bg-danger';
+                    }
+                    
+                    dockerHtml += `
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span class="container-status-indicator ${container.status.includes('Up') ? 'online' : 'offline'}"></span>
+                                    <strong>${container.name}</strong>
+                                </div>
+                                <div class="small text-muted">${container.id.substring(0, 12)}</div>
+                            </td>
+                            <td>
+                                <div>${container.image}</div>
+                            </td>
+                            <td><span class="badge ${statusBadgeClass}">${container.status}</span></td>
+                            <td>
+                                <div class="progress" role="progressbar" aria-label="CPU Usage" aria-valuenow="${cpuPercentage}" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar ${cpuPercentage > 80 ? 'bg-danger' : cpuPercentage > 50 ? 'bg-warning' : 'bg-primary'}" 
+                                         style="width: ${cpuPercentage}%">${container.cpu_usage}</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="progress" role="progressbar" aria-label="Memory Usage" aria-valuenow="${memPercentage}" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar ${memPercentage > 80 ? 'bg-danger' : memPercentage > 50 ? 'bg-warning' : 'bg-info'}" 
+                                         style="width: ${memPercentage}%">${container.memory_usage}</div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                dockerHtml += `
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="docker-resources" role="tabpanel" aria-labelledby="docker-resources-tab">
+                                    <div class="row">
+                                        <div class="col-md-12 mb-4">
+                                            <div id="dockerResourceTimeline" style="height: 300px;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="card mb-3">
+                                                <div class="card-header bg-primary text-white">
+                                                    <i class="bi bi-cpu"></i> CPU Utilization
+                                                </div>
+                                                <div class="card-body">
+                                                    <div id="dockerCpuChart"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card mb-3">
+                                                <div class="card-header bg-info text-white">
+                                                    <i class="bi bi-memory"></i> Memory Utilization
+                                                </div>
+                                                <div class="card-body">
+                                                    <div id="dockerMemoryChart"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="table-responsive mt-3">
+                                        <table class="table table-bordered">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th>Container</th>
+                                                    <th>CPU Cores</th>
+                                                    <th>CPU Usage</th>
+                                                    <th>Memory Used</th>
+                                                    <th>Memory Total</th>
+                                                    <th>Memory %</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                `;
+                
+                // Add detailed resource rows
+                dockerInfo.containers.forEach(container => {
+                    const memParts = container.memory_usage.split(' / ');
+                    const memUsed = memParts[0] || 'N/A';
+                    const memTotal = memParts.length > 1 ? memParts[1] : 'N/A';
+                    const memPercent = container.memory_percent || 'N/A';
+                    
+                    dockerHtml += `
+                        <tr>
+                            <td><strong>${container.name}</strong></td>
+                            <td>${parseFloat(container.cpu_usage) / 100 || 'N/A'}</td>
+                            <td>${container.cpu_usage}</td>
+                            <td>${memUsed}</td>
+                            <td>${memTotal}</td>
+                            <td>${memPercent}</td>
+                        </tr>
+                    `;
+                });
+                
+                dockerHtml += `
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="docker-network" role="tabpanel" aria-labelledby="docker-network-tab">
+                                    <div class="row">
+                                        <div class="col-md-12 mb-4">
+                                            <div id="dockerNetworkGraph" style="height: 300px;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th>Container</th>
+                                                    <th>Network I/O</th>
+                                                    <th>Block I/O</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                `;
+                
+                // Add network rows
+                dockerInfo.containers.forEach(container => {
+                    dockerHtml += `
+                        <tr>
+                            <td><strong>${container.name}</strong></td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-arrow-down text-success me-1"></i>
+                                    <i class="bi bi-arrow-up text-danger me-2"></i>
+                                    ${container.network_io}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-hdd me-2"></i>
+                                    ${container.block_io}
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                dockerHtml += `
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="docker-details" role="tabpanel" aria-labelledby="docker-details-tab">
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h5 class="mb-3">Container Configuration Details</h5>
+                                            <div class="accordion" id="containerDetailsAccordion">
+                                                ${dockerInfo.containers.map((container, index) => {
+                                                    const details = container.details || {};
+                                                    const ports = details.ports || [];
+                                                    const volumes = details.volumes || [];
+                                                    const envVars = details.env_vars || [];
+                                                    const resourceLimits = details.resource_limits || {};
+                                                    const healthStatus = details.health_status || 'N/A';
+                                                    
+                                                    // Format creation date
+                                                    let creationDate = 'Unknown';
+                                                    if (details.created) {
+                                                        try {
+                                                            creationDate = new Date(details.created).toLocaleString();
+                                                        } catch (e) {
+                                                            creationDate = details.created;
+                                                        }
+                                                    }
+                                                    
+                                                    return `
+                                                        <div class="accordion-item">
+                                                            <h2 class="accordion-header" id="heading${index}">
+                                                                <button class="accordion-button ${index === 0 ? '' : 'collapsed'}" type="button" data-bs-toggle="collapse" 
+                                                                        data-bs-target="#collapse${index}" aria-expanded="${index === 0 ? 'true' : 'false'}" 
+                                                                        aria-controls="collapse${index}">
+                                                                    <div class="d-flex align-items-center w-100">
+                                                                        <span class="container-status-indicator ${container.status.includes('Up') ? 'online' : 'offline'}"></span>
+                                                                        <strong class="me-2">${container.name}</strong>
+                                                                        <span class="badge ${healthStatus === 'healthy' ? 'bg-success' : 
+                                                                                            healthStatus === 'unhealthy' ? 'bg-danger' : 
+                                                                                            'bg-secondary'} ms-auto">
+                                                                            ${healthStatus}
+                                                                        </span>
+                                                                    </div>
+                                                                </button>
+                                                            </h2>
+                                                            <div id="collapse${index}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}" 
+                                                                aria-labelledby="heading${index}" data-bs-parent="#containerDetailsAccordion">
+                                                                <div class="accordion-body">
+                                                                    <div class="row">
+                                                                        <div class="col-md-6">
+                                                                            <h6><i class="bi bi-info-circle"></i> Basic Information</h6>
+                                                                            <table class="table table-sm">
+                                                                                <tbody>
+                                                                                    <tr>
+                                                                                        <th width="30%">Container ID:</th>
+                                                                                        <td><code>${container.id}</code></td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Image:</th>
+                                                                                        <td>${container.image}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Status:</th>
+                                                                                        <td>${container.status}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Created:</th>
+                                                                                        <td>${creationDate}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Restarts:</th>
+                                                                                        <td>${details.restarts || 0}</td>
+                                                                                    </tr>
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <h6><i class="bi bi-gear"></i> Resource Limits</h6>
+                                                                            <table class="table table-sm">
+                                                                                <tbody>
+                                                                                    <tr>
+                                                                                        <th width="30%">Memory Limit:</th>
+                                                                                        <td>${resourceLimits.memory || 'No limit'}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>CPU Limit:</th>
+                                                                                        <td>${resourceLimits.cpu || 'No limit'}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Current CPU:</th>
+                                                                                        <td>${container.cpu_usage}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Current Memory:</th>
+                                                                                        <td>${container.memory_usage}</td>
+                                                                                    </tr>
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <div class="row mt-3">
+                                                                        <div class="col-md-6">
+                                                                            <h6><i class="bi bi-hdd-network"></i> Network Configuration</h6>
+                                                                            ${ports.length > 0 ? `
+                                                                                <table class="table table-sm table-bordered">
+                                                                                    <thead class="table-light">
+                                                                                        <tr>
+                                                                                            <th>Port Mappings</th>
+                                                                                        </tr>
+                                                                                    </thead>
+                                                                                    <tbody>
+                                                                                        ${ports.map(port => `
+                                                                                            <tr>
+                                                                                                <td><code>${port}</code></td>
+                                                                                            </tr>
+                                                                                        `).join('')}
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            ` : `<p class="text-muted">No ports exposed</p>`}
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <h6><i class="bi bi-hdd"></i> Storage Volumes</h6>
+                                                                            ${volumes.length > 0 ? `
+                                                                                <table class="table table-sm table-bordered">
+                                                                                    <thead class="table-light">
+                                                                                        <tr>
+                                                                                            <th>Volume Mounts</th>
+                                                                                        </tr>
+                                                                                    </thead>
+                                                                                    <tbody>
+                                                                                        ${volumes.map(volume => `
+                                                                                            <tr>
+                                                                                                <td><code>${volume}</code></td>
+                                                                                            </tr>
+                                                                                        `).join('')}
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            ` : `<p class="text-muted">No volumes mounted</p>`}
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <div class="row mt-3">
+                                                                        <div class="col-12">
+                                                                            <h6><i class="bi bi-list-ul"></i> Environment Variables</h6>
+                                                                            ${envVars.length > 0 ? `
+                                                                                <div class="env-vars-container p-2 bg-light rounded" style="max-height: 150px; overflow-y: auto;">
+                                                                                    <pre class="mb-0"><code>${envVars.join('\n')}</code></pre>
+                                                                                </div>
+                                                                            ` : `<p class="text-muted">No environment variables available or all are filtered for security</p>`}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    `;
+                                                }).join('')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="docker-logs" role="tabpanel" aria-labelledby="docker-logs-tab">
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h5 class="mb-3">Container Logs</h5>
+                                            <div class="accordion" id="containerLogsAccordion">
+                                                ${dockerInfo.containers.map((container, index) => {
+                                                    const logs = container.logs || [];
+                                                    
+                                                    return `
+                                                        <div class="accordion-item">
+                                                            <h2 class="accordion-header" id="logHeading${index}">
+                                                                <button class="accordion-button ${index === 0 ? '' : 'collapsed'}" type="button" data-bs-toggle="collapse" 
+                                                                        data-bs-target="#logCollapse${index}" aria-expanded="${index === 0 ? 'true' : 'false'}" 
+                                                                        aria-controls="logCollapse${index}">
+                                                                    <div class="d-flex align-items-center">
+                                                                        <span class="container-status-indicator ${container.status.includes('Up') ? 'online' : 'offline'}"></span>
+                                                                        <strong>${container.name}</strong>
+                                                                    </div>
+                                                                </button>
+                                                            </h2>
+                                                            <div id="logCollapse${index}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}" 
+                                                                aria-labelledby="logHeading${index}" data-bs-parent="#containerLogsAccordion">
+                                                                <div class="accordion-body">
+                                                                    <div class="logs-container bg-dark text-light p-3 rounded" style="max-height: 300px; overflow-y: auto;">
+                                                                        ${logs.length > 0 ? `
+                                                                            <pre class="mb-0"><code>${logs.join('\n')}</code></pre>
+                                                                        ` : `<p class="text-muted">No logs available</p>`}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    `;
+                                                }).join('')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info mt-3">
+                                <i class="bi bi-info-circle"></i> Weaviate Docker container statistics are updated on refresh.
+                                For real-time monitoring, consider using a dedicated tool like Prometheus with Grafana.
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Create a container for Docker info
+                if (!elements.dockerInfo) {
+                    elements.dockerInfo = document.createElement('div');
+                    elements.dockerInfo.id = 'dockerInfo';
+                    elements.serverInfo.parentNode.insertBefore(elements.dockerInfo, elements.serverInfo.nextSibling);
+                }
+                
+                elements.dockerInfo.innerHTML = dockerHtml;
+                
+                // Add event listener for refresh button
+                const refreshDockerBtn = document.querySelector('.refresh-docker-btn');
+                if (refreshDockerBtn) {
+                    refreshDockerBtn.addEventListener('click', async () => {
+                        try {
+                            const updatedDockerInfo = await fetchAPI('/docker-info');
+                            if (updatedDockerInfo && updatedDockerInfo.status === 'success') {
+                                // Re-render the Docker information
+                                const currentView = state.currentView;
+                                showView('dashboard');
+                            }
+                        } catch (error) {
+                            console.error('Error refreshing Docker info:', error);
+                        }
+                    });
+                }
+                
+                // Create enhanced visualizations using Plotly
+                if (typeof Plotly !== 'undefined') {
+                    // Create CPU Gauge
+                    const avgCpu = dockerInfo.containers.reduce((sum, container) => sum + (parseFloat(container.cpu_usage) || 0), 0) / dockerInfo.containers.length;
+                    
+                    const cpuGaugeData = [
+                        {
+                            type: "indicator",
+                            mode: "gauge+number",
+                            value: avgCpu,
+                            title: { text: "Average CPU Usage (%)", font: { size: 16 } },
+                            gauge: {
+                                axis: { range: [null, 100], tickwidth: 1 },
+                                bar: { color: avgCpu > 80 ? "#f44336" : avgCpu > 50 ? "#ff9800" : "#2196f3" },
+                                bgcolor: "white",
+                                borderwidth: 2,
+                                bordercolor: "gray",
+                                steps: [
+                                    { range: [0, 30], color: "rgba(33, 150, 243, 0.3)" },
+                                    { range: [30, 70], color: "rgba(255, 152, 0, 0.3)" },
+                                    { range: [70, 100], color: "rgba(244, 67, 54, 0.3)" }
+                                ],
+                                threshold: {
+                                    line: { color: "red", width: 4 },
+                                    thickness: 0.75,
+                                    value: 90
+                                }
+                            }
+                        }
+                    ];
+                    
+                    const gaugeLayout = { 
+                        width: 350, 
+                        height: 250, 
+                        margin: { t: 25, r: 25, l: 25, b: 25 },
+                        paper_bgcolor: "white",
+                        font: { color: "darkblue", family: "Arial" }
+                    };
+                    
+                    Plotly.newPlot('dockerCpuGauge', cpuGaugeData, gaugeLayout);
+                    
+                    // Create Memory Gauge
+                    const avgMem = dockerInfo.containers.reduce((sum, container) => sum + (parseFloat(container.memory_percent) || 0), 0) / dockerInfo.containers.length;
+                    
+                    const memGaugeData = [
+                        {
+                            type: "indicator",
+                            mode: "gauge+number",
+                            value: avgMem,
+                            title: { text: "Average Memory Usage (%)", font: { size: 16 } },
+                            gauge: {
+                                axis: { range: [null, 100], tickwidth: 1 },
+                                bar: { color: avgMem > 80 ? "#f44336" : avgMem > 50 ? "#ff9800" : "#4caf50" },
+                                bgcolor: "white",
+                                borderwidth: 2,
+                                bordercolor: "gray",
+                                steps: [
+                                    { range: [0, 30], color: "rgba(76, 175, 80, 0.3)" },
+                                    { range: [30, 70], color: "rgba(255, 152, 0, 0.3)" },
+                                    { range: [70, 100], color: "rgba(244, 67, 54, 0.3)" }
+                                ],
+                                threshold: {
+                                    line: { color: "red", width: 4 },
+                                    thickness: 0.75,
+                                    value: 90
+                                }
+                            }
+                        }
+                    ];
+                    
+                    Plotly.newPlot('dockerMemoryGauge', memGaugeData, gaugeLayout);
+                    
+                    // Create CPU Bar Chart with more details
+                    const cpuData = [{
+                        x: dockerInfo.containers.map(c => c.name),
+                        y: dockerInfo.containers.map(c => parseFloat(c.cpu_usage) || 0),
+                        type: 'bar',
+                        marker: {
+                            color: dockerInfo.containers.map(c => {
+                                const val = parseFloat(c.cpu_usage) || 0;
+                                return val > 80 ? 'rgba(244, 67, 54, 0.8)' : 
+                                       val > 50 ? 'rgba(255, 152, 0, 0.8)' : 
+                                       'rgba(33, 150, 243, 0.8)';
+                            }),
+                            line: {
+                                color: dockerInfo.containers.map(c => {
+                                    const val = parseFloat(c.cpu_usage) || 0;
+                                    return val > 80 ? 'rgb(244, 67, 54)' : 
+                                           val > 50 ? 'rgb(255, 152, 0)' : 
+                                           'rgb(33, 150, 243)';
+                                }),
+                                width: 1.5
+                            }
+                        },
+                        hovertemplate: '<b>%{x}</b><br>CPU Usage: %{y}%<extra></extra>'
+                    }];
+                    
+                    const cpuLayout = {
+                        title: 'Container CPU Usage (%)',
+                        height: 250,
+                        margin: { l: 40, r: 10, t: 30, b: 80 },
+                        yaxis: {
+                            title: 'CPU Usage (%)',
+                            range: [0, 100]
+                        },
+                        xaxis: {
+                            tickangle: -45
+                        },
+                        bargap: 0.15,
+                        paper_bgcolor: 'rgba(0,0,0,0)',
+                        plot_bgcolor: 'rgba(0,0,0,0)'
+                    };
+                    
+                    const cpuConfig = {
+                        responsive: true,
+                        displayModeBar: false
+                    };
+                    
+                    Plotly.newPlot('dockerCpuChart', cpuData, cpuLayout, cpuConfig);
+                    
+                    // Create Memory Bar Chart with more details
+                    const memData = [{
+                        x: dockerInfo.containers.map(c => c.name),
+                        y: dockerInfo.containers.map(c => parseFloat(c.memory_percent) || 0),
+                        type: 'bar',
+                        marker: {
+                            color: dockerInfo.containers.map(c => {
+                                const val = parseFloat(c.memory_percent) || 0;
+                                return val > 80 ? 'rgba(244, 67, 54, 0.8)' : 
+                                       val > 50 ? 'rgba(255, 152, 0, 0.8)' : 
+                                       'rgba(76, 175, 80, 0.8)';
+                            }),
+                            line: {
+                                color: dockerInfo.containers.map(c => {
+                                    const val = parseFloat(c.memory_percent) || 0;
+                                    return val > 80 ? 'rgb(244, 67, 54)' : 
+                                           val > 50 ? 'rgb(255, 152, 0)' : 
+                                           'rgb(76, 175, 80)';
+                                }),
+                                width: 1.5
+                            }
+                        },
+                        hovertemplate: '<b>%{x}</b><br>Memory Usage: %{y}%<br>%{text}<extra></extra>',
+                        text: dockerInfo.containers.map(c => c.memory_usage)
+                    }];
+                    
+                    const memLayout = {
+                        title: 'Container Memory Usage (%)',
+                        height: 250,
+                        margin: { l: 40, r: 10, t: 30, b: 80 },
+                        yaxis: {
+                            title: 'Memory Usage (%)',
+                            range: [0, 100]
+                        },
+                        xaxis: {
+                            tickangle: -45
+                        },
+                        bargap: 0.15,
+                        paper_bgcolor: 'rgba(0,0,0,0)',
+                        plot_bgcolor: 'rgba(0,0,0,0)'
+                    };
+                    
+                    const memConfig = {
+                        responsive: true,
+                        displayModeBar: false
+                    };
+                    
+                    Plotly.newPlot('dockerMemoryChart', memData, memLayout, memConfig);
+                    
+                    // Create Dummy Resource Timeline (simulated values)
+                    const timePoints = [];
+                    const cpuValues = [];
+                    const memValues = [];
+                    
+                    // Create sample data for the last 24 hours
+                    const now = new Date();
+                    for (let i = 24; i >= 0; i--) {
+                        const time = new Date(now.getTime() - i * 3600000);
+                        timePoints.push(time);
+                        
+                        // Create realistic-looking fluctuations
+                        const baseValue = 30 + Math.random() * 10;
+                        const cpuVal = baseValue + Math.sin(i / 4) * 15 + Math.random() * 10;
+                        const memVal = baseValue + Math.cos(i / 6) * 10 + Math.random() * 15;
+                        
+                        cpuValues.push(cpuVal);
+                        memValues.push(memVal);
+                    }
+                    
+                    const timelineData = [
+                        {
+                            x: timePoints,
+                            y: cpuValues,
+                            type: 'scatter',
+                            mode: 'lines+markers',
+                            name: 'CPU (%)',
+                            line: {
+                                color: 'rgb(33, 150, 243)',
+                                width: 2
+                            },
+                            marker: {
+                                color: 'rgb(33, 150, 243)',
+                                size: 5
+                            }
+                        },
+                        {
+                            x: timePoints,
+                            y: memValues,
+                            type: 'scatter',
+                            mode: 'lines+markers',
+                            name: 'Memory (%)',
+                            line: {
+                                color: 'rgb(76, 175, 80)',
+                                width: 2
+                            },
+                            marker: {
+                                color: 'rgb(76, 175, 80)',
+                                size: 5
+                            }
+                        }
+                    ];
+                    
+                    const timelineLayout = {
+                        title: 'Resource Usage Over Time (Simulated)',
+                        xaxis: {
+                            title: 'Time',
+                            showgrid: true,
+                            zeroline: false
+                        },
+                        yaxis: {
+                            title: 'Usage (%)',
+                            range: [0, 100],
+                            showgrid: true,
+                            zeroline: false
+                        },
+                        legend: {
+                            x: 0.1,
+                            y: 1.1,
+                            orientation: 'h'
+                        },
+                        margin: { l: 40, r: 10, t: 30, b: 40 },
+                        hovermode: 'closest',
+                        paper_bgcolor: 'rgba(0,0,0,0)',
+                        plot_bgcolor: 'rgba(248,249,250,1)'
+                    };
+                    
+                    Plotly.newPlot('dockerResourceTimeline', timelineData, timelineLayout);
+                    
+                    // Create Network I/O Graph
+                    // This is a placeholder visualization showing network connections
+                    const nodes = [
+                        { id: 'host', label: 'Host System', shape: 'dot', size: 20, color: { background: '#4CAF50', border: '#388E3C' } }
+                    ];
+                    
+                    const edges = [];
+                    
+                    dockerInfo.containers.forEach((container, index) => {
+                        nodes.push({
+                            id: container.name,
+                            label: container.name,
+                            shape: 'dot',
+                            size: 15,
+                            color: { background: '#2196F3', border: '#1565C0' }
+                        });
+                        
+                        edges.push({
+                            from: 'host',
+                            to: container.name,
+                            arrows: {
+                                to: { enabled: true, scaleFactor: 0.5 },
+                                from: { enabled: true, scaleFactor: 0.5 }
+                            },
+                            color: { color: '#90CAF9' },
+                            label: container.network_io.split(' / ')[0]
+                        });
+                    });
+                    
+                    // Create dummy data for network graph using Plotly
+                    const networkData = [{
+                        type: 'sankey',
+                        orientation: 'h',
+                        node: {
+                            pad: 15,
+                            thickness: 20,
+                            line: { color: 'black', width: 0.5 },
+                            label: ['Host'].concat(dockerInfo.containers.map(c => c.name)),
+                            color: ['#4CAF50'].concat(Array(dockerInfo.containers.length).fill('#2196F3'))
+                        },
+                        link: {
+                            source: Array(dockerInfo.containers.length).fill(0),
+                            target: Array.from({ length: dockerInfo.containers.length }, (_, i) => i + 1),
+                            value: dockerInfo.containers.map(c => 1 + Math.random() * 2),
+                            label: dockerInfo.containers.map(c => c.network_io.split(' / ')[0] || 'N/A')
+                        }
+                    }];
+                    
+                    const networkLayout = {
+                        title: 'Network Connections',
+                        font: { size: 12 },
+                        margin: { l: 0, r: 0, t: 40, b: 0 }
+                    };
+                    
+                    Plotly.newPlot('dockerNetworkGraph', networkData, networkLayout);
+                }
+            } else if (dockerInfo && dockerInfo.status === 'not_found') {
+                // No Docker container found
+                if (!elements.dockerInfo) {
+                    elements.dockerInfo = document.createElement('div');
+                    elements.dockerInfo.id = 'dockerInfo';
+                    elements.serverInfo.parentNode.insertBefore(elements.dockerInfo, elements.serverInfo.nextSibling);
+                }
+                
+                elements.dockerInfo.innerHTML = `
+                    <div class="alert alert-warning mt-4">
+                        <i class="bi bi-exclamation-triangle"></i> No Weaviate Docker containers found.
+                    </div>
+                `;
+            } else if (dockerInfo && dockerInfo.status === 'error') {
+                // Error retrieving Docker info
+                if (!elements.dockerInfo) {
+                    elements.dockerInfo = document.createElement('div');
+                    elements.dockerInfo.id = 'dockerInfo';
+                    elements.serverInfo.parentNode.insertBefore(elements.dockerInfo, elements.serverInfo.nextSibling);
+                }
+                
+                // Show login button if authentication is required
+                if (dockerInfo.message.includes("requires permissions") || dockerInfo.message.includes("login")) {
+                    elements.dockerInfo.innerHTML = `
+                        <div class="alert alert-danger mt-4">
+                            <i class="bi bi-x-circle"></i> Error retrieving Docker information: ${dockerInfo.message}
+                            <div class="mt-2">
+                                <button class="btn btn-primary btn-sm" id="showDockerLoginBtn">
+                                    <i class="bi bi-key"></i> Login for Docker Access
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Add event listener to the login button
+                    document.getElementById('showDockerLoginBtn').addEventListener('click', () => {
+                        elements.dockerLoginModal.show();
+                    });
+                } else {
+                    elements.dockerInfo.innerHTML = `
+                        <div class="alert alert-danger mt-4">
+                            <i class="bi bi-x-circle"></i> Error retrieving Docker information: ${dockerInfo.message}
+                        </div>
+                    `;
+                }
+            }
+        } catch (dockerError) {
+            console.error('Error fetching Docker info:', dockerError);
         }
         
         elements.serverInfo.style.display = 'block';
@@ -249,15 +1152,20 @@ function renderClassesTable(classes) {
                 <td>${cls.vector_type}</td>
                 <td>${cls.vector_dimension}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary view-class-btn" data-class="${cls.class_name}">
-                        <i class="bi bi-eye"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-warning update-class-btn" data-class="${cls.class_name}">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger delete-class-btn" data-class="${cls.class_name}">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-primary view-class-btn" data-class="${cls.class_name}" title="View Class">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning update-class-btn" data-class="${cls.class_name}" title="Edit Class">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger delete-class-btn" data-class="${cls.class_name}" title="Delete Class">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-success export-class-btn" data-class="${cls.class_name}" title="Export Class">
+                            <i class="bi bi-file-earmark-excel"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -288,6 +1196,14 @@ function renderClassesTable(classes) {
             e.stopPropagation();
             const className = btn.getAttribute('data-class');
             showDeleteClassModal(className);
+        });
+    });
+    
+    document.querySelectorAll('.export-class-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const className = btn.getAttribute('data-class');
+            exportClass(className);
         });
     });
     
@@ -620,6 +1536,28 @@ async function runQuery(className) {
         const queryType = elements.queryType.value;
         const limit = parseInt(elements.queryLimit.value) || 5;
         
+        // Get Gemini API key if needed
+        let geminiApiKey = null;
+        let geminiModel = null;
+        if (queryType === 'gemini') {
+            // Check if we have a stored API key
+            geminiApiKey = localStorage.getItem('gemini_api_key');
+            
+            // If not, prompt the user for it
+            if (!geminiApiKey) {
+                geminiApiKey = prompt('Please enter your Gemini API key (it will be stored locally for future use):', '');
+                if (!geminiApiKey) {
+                    alert('Gemini API key is required for Gemini search');
+                    return;
+                }
+                // Save the API key in local storage for future use
+                localStorage.setItem('gemini_api_key', geminiApiKey);
+            }
+            
+            // Get the selected Gemini model
+            geminiModel = elements.geminiModel ? elements.geminiModel.value : 'gemini-1.5-flash';
+        }
+        
         // Show loading
         elements.queryResults.style.display = 'none';
         elements.queryLoading.style.display = 'flex';
@@ -634,7 +1572,9 @@ async function runQuery(className) {
                 class_name: className,
                 query_text: queryText,
                 limit: limit,
-                search_type: queryType
+                search_type: queryType,
+                gemini_api_key: geminiApiKey,
+                gemini_model: geminiModel
             })
         });
         
@@ -647,6 +1587,12 @@ async function runQuery(className) {
                 <button class="btn btn-sm btn-outline-primary open-in-new-tab-btn">
                     <i class="bi bi-box-arrow-up-right"></i> Open in New Tab
                 </button>
+                ${queryType === 'gemini' ? `
+                <button class="btn btn-sm btn-outline-danger ms-2" id="resetGeminiApiBtn">
+                    <i class="bi bi-key"></i> Reset Gemini API Key
+                </button>
+                <span class="ms-2">Model: ${geminiModel}</span>
+                ` : ''}
             </div>
         `;
         
@@ -656,7 +1602,35 @@ async function runQuery(className) {
             window.open(resultsUrl, '_blank');
         });
         
+        // Add event listener to the "Reset Gemini API Key" button if it exists
+        const resetGeminiApiBtn = document.getElementById('resetGeminiApiBtn');
+        if (resetGeminiApiBtn) {
+            resetGeminiApiBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to reset your Gemini API key?')) {
+                    localStorage.removeItem('gemini_api_key');
+                    alert('Gemini API key has been reset. You will be prompted for a new key on your next Gemini search.');
+                }
+            });
+        }
+        
         if (response.status === 'success' && response.results && response.results.length > 0) {
+            // Display Gemini analysis if available
+            if (queryType === 'gemini' && response.gemini_analysis) {
+                const geminiHtml = `
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <i class="bi bi-stars"></i> Gemini AI Analysis
+                        </div>
+                        <div class="card-body">
+                            <div class="gemini-analysis">
+                                ${marked.parse(response.gemini_analysis)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                elements.queryResultsContainer.innerHTML = geminiHtml;
+            }
+            
             // Render results
             const resultsHtml = response.results.map((result, index) => {
                 // Basic object info
@@ -785,7 +1759,15 @@ async function runQuery(className) {
                 `;
             }).join('');
             
-            elements.queryResultsContainer.innerHTML = resultsHtml;
+            // Append the regular results after the Gemini analysis if it exists
+            if (queryType === 'gemini' && response.gemini_analysis) {
+                elements.queryResultsContainer.innerHTML += `
+                    <h5 class="mt-4 mb-3">Original Vector Search Results</h5>
+                    ${resultsHtml}
+                `;
+            } else {
+                elements.queryResultsContainer.innerHTML = resultsHtml;
+            }
             
             // Add event listeners to toggle vector display
             document.querySelectorAll('.toggle-vector-btn').forEach(btn => {
@@ -1453,6 +2435,70 @@ function updateClass() {
         });
 }
 
+// Export all classes to Excel
+function exportAllClasses() {
+    window.open('/api/classes/export', '_blank');
+}
+
+// Export a specific class (currently this just triggers the full export)
+function exportClass(className) {
+    window.open('/api/classes/export', '_blank');
+}
+
+// Login function for Docker access
+async function loginForDockerAccess() {
+    try {
+        // Get form values
+        const username = elements.dockerUsername.value.trim();
+        const password = elements.dockerPassword.value.trim();
+        
+        if (!username || !password) {
+            elements.loginError.textContent = 'Username and password are required';
+            elements.loginError.style.display = 'block';
+            return;
+        }
+        
+        // Send login request
+        const response = await fetch(`${API_URL}/auth/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                username: username,
+                password: password
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Login failed');
+        }
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            // Update authentication state
+            state.isAuthenticated = true;
+            
+            // Hide modal and error
+            elements.loginError.style.display = 'none';
+            elements.dockerLoginModal.hide();
+            
+            // Reload dashboard to update Docker info
+            await loadDashboard();
+        } else {
+            // Show error message
+            elements.loginError.textContent = result.message || 'Login failed';
+            elements.loginError.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error during login:', error);
+        elements.loginError.textContent = error.message || 'Login error occurred';
+        elements.loginError.style.display = 'block';
+    }
+}
+
 // Initialize the dashboard
 function initDashboard() {
     // Navigation listeners
@@ -1505,6 +2551,13 @@ function initDashboard() {
         elements.newClassModal.show();
     });
     
+    // Export Classes button
+    if (elements.exportClassesBtn) {
+        elements.exportClassesBtn.addEventListener('click', () => {
+            exportAllClasses();
+        });
+    }
+    
     // Add Property button
     elements.addPropertyBtn.addEventListener('click', addPropertyRow);
     
@@ -1548,8 +2601,57 @@ function initDashboard() {
         console.error('Update class submit button not found');
     }
     
+    // Docker login submit button
+    if (elements.submitLoginBtn) {
+        elements.submitLoginBtn.addEventListener('click', loginForDockerAccess);
+    }
+    
     // Initial view
     showView('dashboard');
+    
+    // Add event listener for the query type change to show/hide Gemini model selection
+    if (elements.queryType) {
+        elements.queryType.addEventListener('change', function() {
+            const queryType = this.value;
+            const geminiModelContainer = document.getElementById('geminiModelContainer');
+            
+            if (queryType === 'gemini') {
+                // Show the Gemini model selection if it exists
+                if (geminiModelContainer) {
+                    geminiModelContainer.style.display = 'block';
+                } else {
+                    // Create the Gemini model selection if it doesn't exist
+                    const container = document.createElement('div');
+                    container.id = 'geminiModelContainer';
+                    container.className = 'row mb-3';
+                    container.innerHTML = `
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text">Gemini Model</span>
+                                <select class="form-select" id="geminiModel">
+                                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                                    <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
+                                    <option value="gemini-pro">Gemini Pro</option>
+                                    <option value="gemini-pro-vision">Gemini Pro Vision</option>
+                                </select>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Insert it after the limit input
+                    const limitRow = document.querySelector('#queryForm .row.mb-3');
+                    limitRow.parentNode.insertBefore(container, limitRow.nextSibling);
+                    
+                    // Add it to the elements object
+                    elements.geminiModel = document.getElementById('geminiModel');
+                }
+            } else if (geminiModelContainer) {
+                // Hide the Gemini model selection
+                geminiModelContainer.style.display = 'none';
+            }
+        });
+    }
 }
 
 // Start the dashboard when page is loaded

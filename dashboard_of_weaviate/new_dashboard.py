@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI, HTTPException, Query, Path, BackgroundTasks, Request, status, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
@@ -19,6 +19,19 @@ import time
 from datetime import datetime
 import uuid
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
+import subprocess
+import pandas as pd
+from io import BytesIO
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import base64
+import secrets
+import math
+import asyncio
+import shutil
+import string
+import httpx
+import numpy as np
+import google.generativeai as genai  # Add this import for the Gemini API
 
 # Import utility functions from the other files
 from weaviate_classes_objects_check import (
@@ -171,7 +184,17 @@ class QueryRequest(BaseModel):
     class_name: str = Field(..., description="Name of the class to query")
     query_text: str = Field(..., description="Query text")
     limit: int = Field(5, description="Maximum number of results")
-    search_type: str = Field("vector", description="Type of search: 'vector', 'keyword', or 'combined'")
+    search_type: str = Field("vector", description="Type of search: 'vector', 'keyword', 'combined', or 'gemini'")
+    gemini_api_key: Optional[str] = Field(None, description="API key for Gemini, required if search_type is 'gemini'")
+    gemini_model: Optional[str] = Field("gemini-1.5-flash", description="Gemini model to use, defaults to gemini-1.5-flash")
+
+# Add model for login credentials
+class LoginCredentials(BaseModel):
+    username: str = Field(..., description="Username for sudo access")
+    password: str = Field(..., description="Password for sudo access")
+
+# Global variable to store user credentials (temporarily in memory)
+sudo_credentials = None
 
 # Frontend routes
 @app.get("/", response_class=HTMLResponse)
@@ -626,6 +649,97 @@ async def get_classes():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting classes: {str(e)}")
 
+@app.get("/api/classes/export")
+async def export_classes_to_excel():
+    """Export all classes and their information to Excel format"""
+    try:
+        # Get all classes
+        classes = list_classes_with_counts()
+        
+        # Create a dataframe for the basic class information
+        classes_df = pd.DataFrame(classes)
+        
+        # Create a BytesIO object to store the Excel file
+        output = BytesIO()
+        
+        # Create Excel writer
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            # Write the main classes dataframe
+            classes_df.to_excel(writer, sheet_name='Classes Overview', index=False)
+            
+            # For each class, get detailed information and create a sheet
+            for cls in classes:
+                class_name = cls['class_name']
+                # Get class details including properties
+                try:
+                    class_details = get_class_details_for_export(class_name)
+                    
+                    # Create a properties dataframe
+                    properties = class_details.get('properties', [])
+                    if properties:
+                        props_df = pd.DataFrame(properties)
+                        # Convert dataType lists to strings for Excel
+                        props_df['dataType'] = props_df['dataType'].apply(lambda x: ', '.join(x) if isinstance(x, list) else str(x))
+                        props_df.to_excel(writer, sheet_name=f'{class_name}', index=False)
+                except Exception as e:
+                    print(f"Error getting details for class {class_name}: {e}")
+                    continue
+        
+        # Set the pointer to the beginning of the BytesIO object
+        output.seek(0)
+        
+        # Return the Excel file
+        return StreamingResponse(
+            output, 
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={"Content-Disposition": f"attachment; filename=weaviate_classes.xlsx"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error exporting classes: {str(e)}")
+
+# Helper function to get class details for export without async
+def get_class_details_for_export(class_name: str):
+    """Get detailed information about a specific class for export"""
+    try:
+        schema = get_schema()
+        
+        # Find the specific class
+        class_info = None
+        for cls in schema.get("classes", []):
+            if cls.get("class") == class_name:
+                class_info = cls
+                break
+        
+        if not class_info:
+            return {"error": f"Class '{class_name}' not found"}
+        
+        # Get object count
+        object_count, count_time = count_objects_via_graphql(class_name, WEAVIATE_URL, create_weaviate_headers())
+        
+        # Get properties
+        properties = class_info.get("properties", [])
+        
+        # Get vector config
+        vector_config = {
+            "type": class_info.get("vectorizer", "None"),
+            "config": class_info.get("vectorIndexConfig", {})
+        }
+        
+        # Analyze property types
+        property_types = analyze_property_types(properties)
+        
+        return {
+            "class_name": class_name,
+            "object_count": object_count,
+            "count_query_time": count_time,
+            "properties": properties,
+            "property_types": property_types,
+            "vector_config": vector_config
+        }
+    except Exception as e:
+        print(f"Error getting class details for export: {str(e)}")
+        return {"error": str(e)}
+
 @app.get("/api/classes/{class_name}")
 async def get_class_details(class_name: str = Path(..., description="Name of the class to get details for")):
     """Get detailed information about a specific class"""
@@ -887,21 +1001,37 @@ async def get_data_types():
 
 @app.post("/api/query")
 async def query_class(request: QueryRequest):
-    """Query a class with vector or keyword search"""
-    try:
-        if request.search_type == "vector":
-            result = perform_vector_search(request.class_name, request.query_text, request.limit)
-            return result
-        elif request.search_type == "keyword":
-            result = perform_keyword_search(request.class_name, request.query_text, request.limit)
-            return result
-        elif request.search_type == "combined":
-            result = perform_combined_search(request.class_name, request.query_text, request.limit)
-            return result
-        else:
-            raise HTTPException(status_code=400, detail=f"Invalid search type: {request.search_type}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error querying class: {str(e)}")
+    """Query a class in Weaviate using various search methods"""
+    
+    # Check if required parameters are present
+    if not request.class_name:
+        return {"status": "error", "message": "Class name is required"}
+    
+    if not request.query_text:
+        return {"status": "error", "message": "Query text is required"}
+    
+    # Choose the search method based on the search_type parameter
+    if request.search_type == "vector":
+        return perform_vector_search(request.class_name, request.query_text, request.limit)
+    
+    elif request.search_type == "keyword":
+        return perform_keyword_search(request.class_name, request.query_text, request.limit)
+    
+    elif request.search_type == "combined":
+        return perform_combined_search(request.class_name, request.query_text, request.limit)
+    
+    elif request.search_type == "gemini":
+        return await perform_gemini_search(
+            request.class_name,
+            request.query_text,
+            request.limit,
+            request.gemini_api_key,
+            WEAVIATE_URL,
+            request.gemini_model
+        )
+    
+    else:
+        return {"status": "error", "message": f"Invalid search type: {request.search_type}"}
 
 # Background task function
 async def run_full_inspection(report_id, report_path, include_samples=False, run_benchmarks=False):
@@ -1265,6 +1395,401 @@ async def update_class_config_endpoint(
             status_code=500,
             detail=f"Error updating class: {str(e)}"
         )
+
+@app.post("/api/auth/login")
+async def login(credentials: LoginCredentials):
+    """Login with username and password to access Docker information"""
+    global sudo_credentials
+    
+    # Store credentials in memory (not secure for production, but works for this use case)
+    # In a real-world application, you would validate these credentials against the system
+    sudo_credentials = {
+        "username": credentials.username,
+        "password": credentials.password
+    }
+    
+    # Test if credentials work by trying to run a simple sudo command
+    try:
+        # Create command to test sudo access
+        cmd = f"echo '{sudo_credentials['password']}' | sudo -S whoami"
+        
+        # Run the command
+        process = subprocess.run(cmd, capture_output=True, text=True, shell=True)
+        
+        # Check if command succeeded
+        if process.returncode == 0 and 'root' in process.stdout:
+            return {"status": "success", "message": "Authentication successful"}
+        else:
+            sudo_credentials = None
+            return {"status": "error", "message": "Invalid credentials"}
+    except Exception as e:
+        sudo_credentials = None
+        return {"status": "error", "message": f"Authentication error: {str(e)}"}
+
+def get_docker_container_info_with_sudo():
+    """Get Docker container information about Weaviate using sudo if credentials are available"""
+    global sudo_credentials
+    
+    if not sudo_credentials:
+        return {"status": "error", "message": "Docker information requires authentication. Please login first."}
+    
+    try:
+        # Use sudo with provided credentials to run Docker commands
+        username = sudo_credentials["username"]
+        password = sudo_credentials["password"]
+        
+        # Check if Docker is available
+        docker_check_cmd = f"echo '{password}' | sudo -S docker info"
+        docker_check = subprocess.run(docker_check_cmd, capture_output=True, text=True, shell=True)
+        
+        if docker_check.returncode != 0:
+            return {"status": "error", "message": "Docker not available or credentials invalid"}
+        
+        # Get Weaviate container info
+        container_cmd = f"echo '{password}' | sudo -S docker ps --filter 'name=weaviate' --format '{{{{.ID}}}},{{{{.Image}}}},{{{{.Status}}}},{{{{.Names}}}}'"
+        container_info = subprocess.run(container_cmd, capture_output=True, text=True, shell=True)
+        
+        # No container found
+        if not container_info.stdout.strip():
+            return {"status": "not_found", "message": "No Weaviate container found"}
+        
+        # Get Docker system info for aggregate metrics
+        system_cmd = f"echo '{password}' | sudo -S docker system df"
+        system_info = subprocess.run(system_cmd, capture_output=True, text=True, shell=True)
+        
+        # Parse system stats
+        system_stats = {}
+        if system_info.returncode == 0:
+            system_stats = {
+                "total_containers": 0,
+                "running_containers": 0,
+                "total_images": 0,
+                "disk_usage": "Unknown"
+            }
+            
+            for line in system_info.stdout.strip().split('\n'):
+                if "Containers:" in line:
+                    parts = line.strip().split()
+                    if len(parts) >= 4:
+                        system_stats["total_containers"] = parts[1]
+                        system_stats["running_containers"] = parts[3].strip("()")
+                elif "Images:" in line:
+                    parts = line.strip().split()
+                    if len(parts) >= 2:
+                        system_stats["total_images"] = parts[1]
+                elif "Local Volumes:" in line:
+                    parts = line.strip().split()
+                    if len(parts) >= 3:
+                        system_stats["volumes"] = parts[2]
+        
+        containers = []
+        for line in container_info.stdout.strip().split('\n'):
+            if line:
+                parts = line.split(',')
+                if len(parts) >= 4:
+                    container_id, image, status, name = parts
+                    
+                    # Get stats for this container
+                    stats_cmd = f"echo '{password}' | sudo -S docker stats {container_id} --no-stream --format '{{{{.CPUPerc}}}},{{{{.MemUsage}}}},{{{{.MemPerc}}}},{{{{.NetIO}}}},{{{{.BlockIO}}}}'"
+                    stats = subprocess.run(stats_cmd, capture_output=True, text=True, shell=True)
+                    stats_parts = stats.stdout.strip().split(',') if stats.stdout.strip() else []
+                    
+                    # Get more detailed container information
+                    inspect_cmd = f"echo '{password}' | sudo -S docker inspect {container_id}"
+                    inspect_info = subprocess.run(inspect_cmd, capture_output=True, text=True, shell=True)
+                    
+                    # Parse container inspection data
+                    container_details = {}
+                    if inspect_info.returncode == 0:
+                        try:
+                            container_data = json.loads(inspect_info.stdout)[0]
+                            
+                            # Extract ports
+                            ports = []
+                            if "NetworkSettings" in container_data and "Ports" in container_data["NetworkSettings"]:
+                                port_mappings = container_data["NetworkSettings"]["Ports"]
+                                if port_mappings:
+                                    for container_port, host_bindings in port_mappings.items():
+                                        if host_bindings:
+                                            for binding in host_bindings:
+                                                ports.append(f"{binding.get('HostIp', '0.0.0.0')}:{binding.get('HostPort', '?')} → {container_port}")
+                                        else:
+                                            ports.append(f"{container_port} (exposed)")
+                            
+                            # Extract volumes
+                            volumes = []
+                            if "Mounts" in container_data:
+                                for mount in container_data["Mounts"]:
+                                    src = mount.get("Source", "?")
+                                    dst = mount.get("Destination", "?")
+                                    mode = mount.get("Mode", "rw")
+                                    volumes.append(f"{src} → {dst} ({mode})")
+                            
+                            # Extract environment variables
+                            env_vars = []
+                            if "Config" in container_data and "Env" in container_data["Config"]:
+                                for env in container_data["Config"]["Env"]:
+                                    # Filter out sensitive information
+                                    if not any(keyword in env.lower() for keyword in ["password", "secret", "key", "token"]):
+                                        env_vars.append(env)
+                            
+                            # Extract health status
+                            health_status = "N/A"
+                            if "State" in container_data and "Health" in container_data["State"]:
+                                health_status = container_data["State"]["Health"]["Status"]
+                            
+                            # Extract resource limits
+                            resource_limits = {}
+                            if "HostConfig" in container_data:
+                                host_config = container_data["HostConfig"]
+                                if "Memory" in host_config and host_config["Memory"] > 0:
+                                    memory_limit = host_config["Memory"] / (1024 * 1024)  # Convert to MB
+                                    resource_limits["memory"] = f"{memory_limit:.0f}MB"
+                                if "NanoCpus" in host_config and host_config["NanoCpus"] > 0:
+                                    cpu_limit = host_config["NanoCpus"] / 1e9  # Convert to CPU cores
+                                    resource_limits["cpu"] = f"{cpu_limit:.2f} cores"
+                            
+                            # Add to container details
+                            container_details = {
+                                "ports": ports,
+                                "volumes": volumes,
+                                "env_vars": env_vars,
+                                "health_status": health_status,
+                                "resource_limits": resource_limits,
+                                "created": container_data.get("Created", "Unknown"),
+                                "restarts": container_data.get("RestartCount", 0) if "RestartCount" in container_data else 0
+                            }
+                        except json.JSONDecodeError:
+                            print(f"Error parsing container inspection data: {inspect_info.stdout}")
+                    
+                    # Get container logs (last 5 lines)
+                    logs_cmd = f"echo '{password}' | sudo -S docker logs --tail 5 {container_id} 2>&1"
+                    logs_info = subprocess.run(logs_cmd, capture_output=True, text=True, shell=True)
+                    logs = logs_info.stdout.strip().split('\n') if logs_info.returncode == 0 else []
+                    
+                    containers.append({
+                        "id": container_id,
+                        "image": image,
+                        "status": status,
+                        "name": name,
+                        "cpu_usage": stats_parts[0] if len(stats_parts) > 0 else "N/A",
+                        "memory_usage": stats_parts[1] if len(stats_parts) > 1 else "N/A",
+                        "memory_percent": stats_parts[2] if len(stats_parts) > 2 else "N/A",
+                        "network_io": stats_parts[3] if len(stats_parts) > 3 else "N/A",
+                        "block_io": stats_parts[4] if len(stats_parts) > 4 else "N/A",
+                        "details": container_details,
+                        "logs": logs
+                    })
+        
+        return {
+            "status": "success", 
+            "containers": containers,
+            "system": system_stats
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# Keep the original function for backward compatibility
+def get_docker_container_info():
+    """Get Docker container information about Weaviate"""
+    # First try with sudo if credentials are available
+    if sudo_credentials:
+        return get_docker_container_info_with_sudo()
+    
+    # If no credentials or sudo failed, try without sudo
+    try:
+        # Check if Docker is available
+        docker_check = subprocess.run(['docker', 'info'], capture_output=True, text=True)
+        if docker_check.returncode != 0:
+            return {"status": "error", "message": "Docker not available or requires permissions. Please use login."}
+        
+        # Get Weaviate container info
+        container_info = subprocess.run(
+            ['docker', 'ps', '--filter', 'name=weaviate', '--format', 
+             '{{.ID}},{{.Image}},{{.Status}},{{.Names}}'],
+            capture_output=True, text=True
+        )
+        
+        # No container found
+        if not container_info.stdout.strip():
+            return {"status": "not_found", "message": "No Weaviate container found"}
+        
+        containers = []
+        for line in container_info.stdout.strip().split('\n'):
+            if line:
+                parts = line.split(',')
+                if len(parts) >= 4:
+                    container_id, image, status, name = parts
+                    
+                    # Get stats for this container
+                    stats = subprocess.run(
+                        ['docker', 'stats', container_id, '--no-stream', '--format', 
+                         '{{.CPUPerc}},{{.MemUsage}},{{.MemPerc}},{{.NetIO}},{{.BlockIO}}'],
+                        capture_output=True, text=True
+                    )
+                    
+                    stats_parts = stats.stdout.strip().split(',') if stats.stdout.strip() else []
+                    
+                    containers.append({
+                        "id": container_id,
+                        "image": image,
+                        "status": status,
+                        "name": name,
+                        "cpu_usage": stats_parts[0] if len(stats_parts) > 0 else "N/A",
+                        "memory_usage": stats_parts[1] if len(stats_parts) > 1 else "N/A",
+                        "memory_percent": stats_parts[2] if len(stats_parts) > 2 else "N/A",
+                        "network_io": stats_parts[3] if len(stats_parts) > 3 else "N/A",
+                        "block_io": stats_parts[4] if len(stats_parts) > 4 else "N/A"
+                    })
+        
+        return {"status": "success", "containers": containers}
+    except Exception as e:
+        return {"status": "error", "message": f"Docker error: {str(e)}. Please use login."}
+
+@app.get("/api/docker-info")
+async def get_docker_info():
+    """Get information about Docker containers running Weaviate"""
+    return get_docker_container_info()
+
+async def perform_gemini_search(class_name, query_text, limit=5, gemini_api_key=None, base_url=WEAVIATE_URL, gemini_model="gemini-1.5-flash"):
+    """
+    Perform a search using Google's Gemini model to analyze vector search results.
+    
+    1. First retrieves results from vector search
+    2. Sends these results to Gemini with a carefully crafted prompt
+    3. Returns both the original results and Gemini's enhanced analysis
+    """
+    if not gemini_api_key:
+        return {
+            "status": "error",
+            "message": "Gemini API key is required for Gemini search"
+        }
+    
+    try:
+        # First perform a vector search to get relevant documents
+        vector_results = perform_vector_search(class_name, query_text, limit, base_url)
+        
+        if vector_results.get("status") == "error":
+            return vector_results
+            
+        # Extract the results
+        results = vector_results.get("results", [])
+        
+        if not results:
+            return {
+                "status": "success",
+                "results": [],
+                "gemini_analysis": "No relevant documents found for your query."
+            }
+            
+        # Construct a prompt for Gemini
+        prompt = construct_gemini_prompt(query_text, results, class_name)
+        
+        # Call Gemini API with the specified model
+        gemini_response = await call_gemini_api(prompt, gemini_api_key, gemini_model)
+        
+        # Return both the original results and Gemini's analysis
+        return {
+            "status": "success",
+            "results": results,
+            "gemini_analysis": gemini_response
+        }
+        
+    except Exception as e:
+        print(f"Error in Gemini search: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Error performing Gemini search: {str(e)}"
+        }
+
+def construct_gemini_prompt(query, results, class_name):
+    """
+    Construct a prompt for the Gemini model with context about the Weaviate database and search results.
+    """
+    # Start with an introduction that explains the context
+    prompt = f"""
+You are an AI assistant analyzing internal data from a Weaviate Vector Database. 
+This is a self-hosted instance running in Docker, and you're working with the collection named '{class_name}'.
+
+USER QUERY: "{query}"
+
+I'm providing you with the top search results from a vector similarity search on this data. 
+These results are chunks of data stored as objects in the database.
+
+As you analyze these results, please keep in mind:
+1. This is for developers working with this data
+2. Include technical details that would be helpful for development
+3. Your response should synthesize information from these results
+4. Cite specific results when you reference them
+5. If the results don't contain enough information to answer fully, acknowledge that
+
+Here are the search results:
+"""
+
+    # Add the search results
+    for i, result in enumerate(results):
+        prompt += f"\n--- RESULT {i+1} ---\n"
+        
+        # Add main content if available
+        if "text" in result:
+            prompt += f"Content: {result['text']}\n"
+            
+        # Add other key properties that might be useful
+        for prop, value in result.items():
+            if prop not in ["_additional", "text"] and not isinstance(value, dict) and not isinstance(value, list):
+                prompt += f"{prop}: {value}\n"
+        
+        # Add metadata
+        if "_additional" in result:
+            add_info = result["_additional"]
+            if "certainty" in add_info:
+                prompt += f"Relevance Score: {add_info['certainty']:.4f}\n"
+                
+    # Add final instructions
+    prompt += """
+Based on these search results, please:
+1. Provide a comprehensive answer to the user's query
+2. Include any relevant code examples or technical details
+3. Highlight any gaps in the information
+4. Suggest follow-up queries if appropriate
+
+Remember that you're helping developers understand and work with this data.
+"""
+    
+    return prompt
+
+async def call_gemini_api(prompt, api_key, model="gemini-1.5-flash"):
+    """
+    Call the Google Gemini API with the provided prompt using the official Google Generative AI library.
+    """
+    try:
+        # Configure the Google Generative AI library with the API key
+        genai.configure(api_key=api_key)
+        
+        # Get the specified model
+        model_obj = genai.GenerativeModel(model)
+        
+        # Generate content with the model
+        response = await asyncio.to_thread(
+            model_obj.generate_content,
+            prompt,
+            generation_config={
+                "temperature": 0.3,
+                "top_p": 0.8,
+                "top_k": 40,
+                "max_output_tokens": 2048
+            }
+        )
+        
+        # Extract the generated text from the response
+        if response and hasattr(response, 'text'):
+            return response.text
+        
+        # Handle unexpected response format
+        return "Error: Received unexpected response format from Gemini API."
+            
+    except Exception as e:
+        return f"Error calling Gemini API: {str(e)}"
 
 if __name__ == "__main__":
     import socket
