@@ -1,0 +1,771 @@
+{
+  "id": "20250517_082349_99be5915",
+  "timestamp": "2025-05-17T08:23:49.614952",
+  "status": "completed",
+  "server_info": {
+    "grpcMaxMessageSize": 104858000,
+    "hostname": "http://[::]:8090",
+    "modules": {},
+    "version": "1.30.2"
+  },
+  "health_check": {},
+  "collections": [
+    {
+      "name": "PDFDocuments",
+      "properties": [
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "text",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "source",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "filename",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "folder",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "page"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "title",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "author",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "subject",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "keywords",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "creation_date",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "modification_date",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "page_count"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "file_size"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_images"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "image_count"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "languages",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_layout_info_multi_column"
+        },
+        {
+          "dataType": [
+            "number"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_readability_stats_avg_sentence_length"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_toc"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_links"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_forms"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_annotations"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "is_encrypted"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "is_reflowable"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_embedded_files"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "producer",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "pdf_version",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "toc",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "table_count"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "total_chars"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "total_words"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "encryption_method",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "permissions",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "embedded_file_names",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "embedded_files_info",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "fonts_used",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "cover_image",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_tables"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "document_mimeType",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "date"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "document_createdTime"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_layout_info_has_header_footer"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "document_name",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "document_size",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "document_lastModifyingUser",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "feature_page_features",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "feature_document_structure_heading_levels",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "number"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_document_structure_section_counts"
+        },
+        {
+          "dataType": [
+            "date"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "document_modifiedTime"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "feature_layout_info_page_dimensions",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "number"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_document_structure_avg_section_length"
+        },
+        {
+          "dataType": [
+            "number"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_readability_stats_avg_word_length"
+        },
+        {
+          "dataType": [
+            "number"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_readability_stats_complex_word_percentage"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "document_owners",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "creator",
+          "tokenization": "word"
+        }
+      ],
+      "objects": {
+        "count": 118,
+        "count_query_time": 0.0013353824615478516,
+        "sample_query_time": 0.006908893585205078,
+        "samples": [
+          {
+            "properties": {
+              "author": "",
+              "cover_image": "data:image/jpeg;base64,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",
+              "creation_date": null,
+              "creator": "Google",
+              "document_createdTime": "2023-01-27T00:26:00.754Z",
+              "document_lastModifyingUser": "{\"kind\": \"drive#user\", \"displayName\": \"Silviya Angelova\", \"photoLink\": \"https://lh3.googleusercontent.com/a-/ALV-UjVop33ti5_LJm4hNbXV1x2iHa9jlEyEXnaCJmfLmnt_GIDR8mWg=s64\", \"me\": false, \"permissionId\": \"07463059280041955337\", \"emailAddress\": \"s.angelova@us.411locals.com\"}",
+              "document_mimeType": "application/vnd.google-apps.presentation",
+              "document_modifiedTime": "2024-12-12T17:25:49.998Z",
+              "document_name": "[WB] Creating Urgency - Sales technique",
+              "document_owners": "[{\"kind\": \"drive#user\", \"displayName\": \"Silviya Angelova\", \"photoLink\": \"https://lh3.googleusercontent.com/a-/ALV-UjVop33ti5_LJm4hNbXV1x2iHa9jlEyEXnaCJmfLmnt_GIDR8mWg=s64\", \"me\": false, \"permissionId\": \"07463059280041955337\", \"emailAddress\": \"s.angelova@us.411locals.com\"}]",
+              "document_size": "284703",
+              "embedded_file_names": "[]",
+              "embedded_files_info": "[]",
+              "encryption_method": "",
+              "feature_document_structure_avg_section_length": 0,
+              "feature_document_structure_heading_levels": "[{\"text\": \"Create Urgency\", \"level\": 48, \"page\": 1}, {\"text\": \"create\", \"level\": 33, \"page\": 2}, {\"text\": \"How to\", \"level\": 32, \"page\": 2}, {\"text\": \"urgency\", \"level\": 32, \"page\": 2}, {\"text\": \"than later.\", \"level\": 16, \"page\": 2}, {\"text\": \"Benefits of Creating Urgency\", \"level\": 32, \"page\": 3}, {\"text\": \"\\u25cf\", \"level\": 18, \"page\": 3}, {\"text\": \"Helping customers make immediate decisions\", \"level\": 18, \"page\": 3}, {\"text\": \"\\u25cf\", \"level\": 18, \"page\": 3}, {\"text\": \"Increasing the perceived value of your product\", \"level\": 18, \"page\": 3}, {\"text\": \"\\u25cf\", \"level\": 18, \"page\": 3}, {\"text\": \"Increasing your sales\", \"level\": 18, \"page\": 3}, {\"text\": \"\\u25cf\", \"level\": 18, \"page\": 3}, {\"text\": \"Increasing the desire for your products\", \"level\": 18, \"page\": 3}, {\"text\": \"\\u25cf\", \"level\": 18, \"page\": 3}, {\"text\": \"Giving immediate feedback about whether sales techniques work\", \"level\": 18, \"page\": 3}, {\"text\": \"\\u25cf\", \"level\": 18, \"page\": 3}, {\"text\": \"Making purchasing easier for your customers\", \"level\": 18, \"page\": 3}, {\"text\": \"\\u25cf\", \"level\": 18, \"page\": 3}, {\"text\": \"Reducing the chances of alternate purchase decisions\", \"level\": 18, \"page\": 3}]",
+              "feature_document_structure_section_counts": 1,
+              "feature_layout_info_has_header_footer": true,
+              "feature_layout_info_multi_column": true,
+              "feature_layout_info_page_dimensions": "[{\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}]",
+              "feature_page_features": "[{\"page_number\": 1, \"text_blocks\": 2, \"word_count\": 2, \"char_count\": 15, \"image_count\": 1}, {\"page_number\": 2, \"text_blocks\": 5, \"word_count\": 117, \"char_count\": 732, \"image_count\": 1}, {\"page_number\": 3, \"text_blocks\": 3, \"word_count\": 46, \"char_count\": 353, \"image_count\": 0}, {\"page_number\": 4, \"text_blocks\": 5, \"word_count\": 166, \"char_count\": 886, \"image_count\": 1}, {\"page_number\": 5, \"text_blocks\": 4, \"word_count\": 149, \"char_count\": 798, \"image_count\": 1}, {\"page_number\": 6, \"text_blocks\": 5, \"word_count\": 266, \"char_count\": 1480, \"image_count\": 0}, {\"page_number\": 7, \"text_blocks\": 14, \"word_count\": 229, \"char_count\": 1186, \"image_count\": 0}, {\"page_number\": 8, \"text_blocks\": 8, \"word_count\": 79, \"char_count\": 430, \"image_count\": 0}, {\"page_number\": 9, \"text_blocks\": 13, \"word_count\": 198, \"char_count\": 989, \"image_count\": 1}]",
+              "feature_readability_stats_avg_sentence_length": 19.26153846153846,
+              "feature_readability_stats_avg_word_length": 4.281150159744409,
+              "feature_readability_stats_complex_word_percentage": 6.549520766773163,
+              "file_size": 324432,
+              "filename": "[wb] creating urgency - sales technique.pdf",
+              "folder": "pdfs",
+              "fonts_used": "[\"ArialMT\", \"TimesNewRomanPSMT\", \"Roboto-Italic\", \"Arial-ItalicMT\", \"TimesNewRomanPS-ItalicMT\", \"Cambria\", \"Cambria-Bold\", \"Roboto-Regular\", \"Roboto-Bold\"]",
+              "has_annotations": false,
+              "has_embedded_files": false,
+              "has_forms": false,
+              "has_images": true,
+              "has_links": false,
+              "has_tables": false,
+              "has_toc": false,
+              "image_count": 5,
+              "is_encrypted": false,
+              "is_reflowable": false,
+              "keywords": "",
+              "languages": "unknown",
+              "modification_date": null,
+              "page": 3,
+              "page_count": 9,
+              "pdf_version": "unknown",
+              "permissions": "-4",
+              "producer": "",
+              "source": "pdfs/[wb] creating urgency - sales technique.pdf",
+              "subject": "",
+              "table_count": 0,
+              "text": "[PAGE_BREAK: 4] Talk Numbers \u25cf Last week alone we delivered over 5000 leads to our customers, that`s a little over 250% more than what we did in the 3rd week of March, when this ali started. Now, I don't want you to mistake my urgency with pressure, but more and more businesses are contacting us, to promote their business. There are 77% more new businesses registered in the states this last quarter, compared to Q2. Thats HUGE! And they are ali trying to lift their way off the ground. I would hate to see someone like that take over your spot and your potentiai customers, I believe you deserve to be there. \u25cf Don't mistake my urgency with pressure, but I got whole sales team looking to close this position. We get about 100 inquiries daily for our services. If one of them is your competitor, they wili fili in the slot and I don't want that to happen, I would much rather work with you.",
+              "title": "[WB] Creating Urgency - Sales technique",
+              "toc": "",
+              "total_chars": 6869,
+              "total_words": 1252
+            },
+            "id": "0024c8c9-9625-54ea-822a-6b5bcb503656",
+            "created": "1747464414264"
+          },
+          {
+            "properties": {
+              "author": "",
+              "cover_image": "",
+              "creation_date": null,
+              "creator": "Google",
+              "document_createdTime": "2018-10-16T16:56:53.932Z",
+              "document_lastModifyingUser": "{\"kind\": \"drive#user\", \"displayName\": \"Ron Prasad\", \"photoLink\": \"https://lh3.googleusercontent.com/a-/ALV-UjVuD8wE3dg1rCNv9JK_Y71vAdi5XjfLKhJvHq8tpWht0yHdugSk=s64\", \"me\": false, \"permissionId\": \"06639086412632115450\", \"emailAddress\": \"r.prasad@us.411locals.com\"}",
+              "document_mimeType": "application/vnd.google-apps.presentation",
+              "document_modifiedTime": "2025-01-29T17:08:56.818Z",
+              "document_name": "[WB] Call Flow January 2021",
+              "document_owners": "[{\"kind\": \"drive#user\", \"displayName\": \"Ron Prasad\", \"photoLink\": \"https://lh3.googleusercontent.com/a-/ALV-UjVuD8wE3dg1rCNv9JK_Y71vAdi5XjfLKhJvHq8tpWht0yHdugSk=s64\", \"me\": false, \"permissionId\": \"06639086412632115450\", \"emailAddress\": \"r.prasad@us.411locals.com\"}]",
+              "document_size": "29621",
+              "embedded_file_names": "[]",
+              "embedded_files_info": "[]",
+              "encryption_method": "",
+              "feature_document_structure_avg_section_length": 0,
+              "feature_document_structure_heading_levels": "[{\"text\": \"Winback Sales Call Flow\", \"level\": 48, \"page\": 1}, {\"text\": \"Call Flow 2021\", \"level\": 24, \"page\": 1}, {\"text\": \"Call Flow Process\", \"level\": 24, \"page\": 2}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 3}, {\"text\": \"Intro &\", \"level\": 18, \"page\": 3}, {\"text\": \"Self Hype\", \"level\": 18, \"page\": 3}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 4}, {\"text\": \"Hook\", \"level\": 18, \"page\": 4}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 5}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 6}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 7}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 8}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 9}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 10}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 11}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 12}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 13}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 14}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 15}, {\"text\": \"CALL FLOW\", \"level\": 24, \"page\": 16}]",
+              "feature_document_structure_section_counts": 1,
+              "feature_layout_info_has_header_footer": true,
+              "feature_layout_info_multi_column": true,
+              "feature_layout_info_page_dimensions": "[{\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}]",
+              "feature_page_features": "[{\"page_number\": 1, \"text_blocks\": 3, \"word_count\": 8, \"char_count\": 41, \"image_count\": 0}, {\"page_number\": 2, \"text_blocks\": 37, \"word_count\": 221, \"char_count\": 1282, \"image_count\": 0}, {\"page_number\": 3, \"text_blocks\": 6, \"word_count\": 141, \"char_count\": 874, \"image_count\": 0}, {\"page_number\": 4, \"text_blocks\": 8, \"word_count\": 165, \"char_count\": 947, \"image_count\": 0}, {\"page_number\": 5, \"text_blocks\": 8, \"word_count\": 200, \"char_count\": 1209, \"image_count\": 0}, {\"page_number\": 6, \"text_blocks\": 5, \"word_count\": 129, \"char_count\": 667, \"image_count\": 0}, {\"page_number\": 7, \"text_blocks\": 9, \"word_count\": 139, \"char_count\": 786, \"image_count\": 0}, {\"page_number\": 8, \"text_blocks\": 7, \"word_count\": 155, \"char_count\": 829, \"image_count\": 0}, {\"page_number\": 9, \"text_blocks\": 8, \"word_count\": 102, \"char_count\": 633, \"image_count\": 0}, {\"page_number\": 10, \"text_blocks\": 10, \"word_count\": 61, \"char_count\": 439, \"image_count\": 0}, {\"page_number\": 11, \"text_blocks\": 6, \"word_count\": 197, \"char_count\": 1027, \"image_count\": 0}, {\"page_number\": 12, \"text_blocks\": 6, \"word_count\": 155, \"char_count\": 883, \"image_count\": 0}, {\"page_number\": 13, \"text_blocks\": 6, \"word_count\": 182, \"char_count\": 996, \"image_count\": 0}, {\"page_number\": 14, \"text_blocks\": 7, \"word_count\": 108, \"char_count\": 564, \"image_count\": 0}, {\"page_number\": 15, \"text_blocks\": 5, \"word_count\": 152, \"char_count\": 735, \"image_count\": 0}, {\"page_number\": 16, \"text_blocks\": 7, \"word_count\": 189, \"char_count\": 995, \"image_count\": 0}, {\"page_number\": 17, \"text_blocks\": 5, \"word_count\": 135, \"char_count\": 822, \"image_count\": 0}, {\"page_number\": 18, \"text_blocks\": 6, \"word_count\": 138, \"char_count\": 717, \"image_count\": 0}]",
+              "feature_readability_stats_avg_sentence_length": 20.951219512195124,
+              "feature_readability_stats_avg_word_length": 4.3457508731082655,
+              "feature_readability_stats_complex_word_percentage": 7.334109429569266,
+              "file_size": 236536,
+              "filename": "[wb] call flow january 2021.pdf",
+              "folder": "pdfs",
+              "fonts_used": "[\"ArialMT\", \"Roboto-Regular\", \"Roboto-Bold\", \"Dosis-Regular\", \"Roboto-Italic\", \"MS-PGothic\", \"TimesNewRomanPS-ItalicMT\", \"Comfortaa-Regular\", \"Arial-ItalicMT\", \"ComicSansMS-Italic\", \"Arial-BoldMT\", \"Arial-BoldItalicMT\"]",
+              "has_annotations": false,
+              "has_embedded_files": false,
+              "has_forms": false,
+              "has_images": false,
+              "has_links": true,
+              "has_tables": false,
+              "has_toc": false,
+              "image_count": 0,
+              "is_encrypted": false,
+              "is_reflowable": false,
+              "keywords": "",
+              "languages": "unknown",
+              "modification_date": null,
+              "page": 0,
+              "page_count": 18,
+              "pdf_version": "unknown",
+              "permissions": "-4",
+              "producer": "",
+              "source": "pdfs/[wb] call flow january 2021.pdf",
+              "subject": "",
+              "table_count": 0,
+              "text": "Shiny new one? \u2605 I can see there is a card on file ending in ### is this the best card to use today? \u2605 Could you please confirm the expiry date on that card that you wili use today. OVERCOME OBJECTION Use L.A.R.M to overcome objection - for M - Use an assumptive or alternate close CLOSE ASK FOR THE MONEY! !",
+              "title": "[WB] Call Flow January 2021",
+              "toc": "",
+              "total_chars": 14446,
+              "total_words": 2577
+            },
+            "id": "0082ced6-ba95-5e51-a579-e780980a8f3a",
+            "created": "1747464414667"
+          },
+          {
+            "properties": {
+              "author": "",
+              "cover_image": "data:image/jpeg;base64,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288YHPPt9KANyisl/ENoLazmgiuLn7ZGZYo4Y8tsABJIJHTI465NUk8Upbi7F5C7vBNMMW6Z2xRkZdsntuHT8BQB0dFYTeLdNX7ScSlYHEZbCgM5YKAMnjJPfAxz0qZvEVoNPtLtIriT7WCYolQbyACSeTjAAPOfpnNAGvRXP6t4jez0+wvLSBGgu03+dcFlSMbQyhiAcZzjJ4FLP4mh/ewwRuZwsgWUruhMqR7yuQQTgd+nvQBv0Vhad4ntb25tLIhvtc0SO+wDarGMPjrnoeuMcgZzW7QAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQBlS+HrGbUJbyXz3eV0d4zM3lsU+7lehxiov8AhF9P8yNmNw4SYz7GmJUuX35I/wB7mtqigDDbwnpzQiEvdeUsckSr57YVJPvKPbgVX1HwsJVLWUmJnk3u88jkj935eVKkEcYyOhxXSUUAYVv4VsYDbP5lx5kAiIKylVZ0TYG29M7eKWPwppsf2cA3JW3UiJWmJCnDDI9/mP8AkVuUUAYieFdOjMRVrkeUIQg89uBFnZ+WTUN14TtGtClsXMoVlTz5XZRukEjdCDncMgjocV0NFAGJZeHY49GexupXdpLg3LPG7Aq+/eMEknggcnrST+E9MngSJhOAEdGKzMDIHbc2498sM1uUUAcz/wAIr5urTXE8qi3fzfliZwzeYoU5ycA4HJA5q4nhfT0dXVrglXjkG6YkbkXauR6Y4962qKAOd0Xw01gLr7RMpE9uluFgdwERd33SxJX7xwBwMUs/hKxNrIkG4zFZcGZ2ZWaQAMWAIz91emOldDRQBzll4UiRGe9nledpZJMxyvhd6BCMkkt8o6n1qwvhbTo5InQ3KmIxlQJmxuRdqsfU7eK26KAMaDwxp1vJZsvnsLPHko8pZVIzg/X5jT5/DtlNcy3G+4jkklE2Y5iu19u0svoSvBrWooAzZNCsnis44xLB9jXZC0MhVlUgArnuDgflVeTwtpspkLfaMyvI0hEzDeHxvU/7J2jitqigDEl8K6ZPJNJKszPLjDGQ5jw28bfTB/w6VaudEtbu3topXnJt87JRKQ/IIIJ75BxWjRQBkz+HrOewtrIyXKQ28RhUJOylkIAKsR1GAKibwrphlLoJ4xliI45mCqWTYxA91rbooAy7HQLLTroXFsZkbYqMvmkq+1doLDuQAB+FalFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAf//Z",
+              "creation_date": null,
+              "creator": "Google",
+              "document_createdTime": "2021-03-19T14:01:36.636Z",
+              "document_lastModifyingUser": "{\"kind\": \"drive#user\", \"displayName\": \"Geo Anico\", \"photoLink\": \"https://lh3.googleusercontent.com/a-/ALV-UjUmPEoF3tJQsarqFgVwnxX1iUiooube20Gmz94ycZBGnCpeAhUfLF_7Zv7ttrPVwptHNwZGmhwJ_JhDoFiKJcJWMl9OojcAhIvH3rG7LCprsG2PHhTM34fNN1jK7-TJ1wCPr7IUi95M0eB7abgiuhCYT-QZRuBZNZ5gRtPQFyyTLc6HoIA_A0EEpQODQ5biRj6astiTlwLAUm4dSrFfOXV4pbvNiwbTLxXBijQE5tbEgbW9YTkoNlfXFziZ1b_K97GZibNxY4tpHQAosbOf-Bd0dJXd6BuAmOKJFx1-9qavFQeOXNaVRrB0VuOIYEAsTCEfvPoSnDMcHi263oa-AkDrpMaCq4WndSASLfLP1dTj5LATvZiPVdYPKvc00HgX6p4WMTht6pW8VVRGbaA_fY3Yre35m-PxoWGv2W1673tOau71dy_YMJe780EYVYDrjYTWo-RYV-P6cj6M-bnsunB8YfUMjtUAEk5GfeyJaeWFqTHheRD7SmUVmNhf16V8tcC_epwwhoiymyR_GGCsvx6Pnoa3Y11WuHdN96BESRkJCtiPdpDsp-cJ1GL9Rw6NVpZxOliT9qlZK-9k_KEf7TP7lNvnNAAxpUerMq44VhBdKAjC8JuZjWW1KxuQ31aRsszl4LP37vYuAvb-eAmxVKVS53eLDhzorlPROFpw6NjplXzQ_x_pT3rcwFMEK_oYddJnW2y9bo731XvTDXgTNgkXm91AGvL2EF3HBNNvkqlOaH-GMPizDGbPZhUx3k8CtJuLiUKSZzdTBzTAZwM3NBont_4TG7NDkFDNYjT9s4iDDCaWkp5F_viotWkgM-xFn-4r3ZbrQ2WIcWynNdt5upA5T2uN5etiZDkRrWVbGoFqxpDP1t1rn9yF8gYsNYMnBUn70Mr4Guc5ZMecY0KExc3Abuboq_902ys5-TMTs5YosCnXqAY7-0UwXaPYp8NGInJpsbVZrOSdiynkCK2WD7_lQEDRmaE9cg=s64\", \"me\": false, \"permissionId\": \"03238810665618520116\", \"emailAddress\": \"g.raphiel@us.411locals.com\"}",
+              "document_mimeType": "application/vnd.google-apps.presentation",
+              "document_modifiedTime": "2023-12-05T16:50:56.326Z",
+              "document_name": "[WB] Identifying Buying Signals",
+              "document_owners": "[{\"kind\": \"drive#user\", \"displayName\": \"Silviya Angelova\", \"photoLink\": \"https://lh3.googleusercontent.com/a-/ALV-UjVop33ti5_LJm4hNbXV1x2iHa9jlEyEXnaCJmfLmnt_GIDR8mWg=s64\", \"me\": false, \"permissionId\": \"07463059280041955337\", \"emailAddress\": \"s.angelova@us.411locals.com\"}]",
+              "document_size": "165246",
+              "embedded_file_names": "[]",
+              "embedded_files_info": "[]",
+              "encryption_method": "",
+              "feature_document_structure_avg_section_length": 0,
+              "feature_document_structure_heading_levels": "[{\"text\": \"Identifying Buying Signals\", \"level\": 48, \"page\": 1}, {\"text\": \"Distinguishing buying signals to close a Sale\", \"level\": 24, \"page\": 1}, {\"text\": \"Objectives:\", \"level\": 28, \"page\": 2}, {\"text\": \"\\u25cf\", \"level\": 18, \"page\": 2}, {\"text\": \"Define buying signals.\", \"level\": 18, \"page\": 2}, {\"text\": \"\\u25cf\", \"level\": 18, \"page\": 2}, {\"text\": \"\\u25cf\", \"level\": 18, \"page\": 2}, {\"text\": \"\\u25cf\", \"level\": 18, \"page\": 2}, {\"text\": \"Role play of what to do after buying signals\", \"level\": 18, \"page\": 2}, {\"text\": \"What are buying signals ?\", \"level\": 36, \"page\": 3}, {\"text\": \"Buying signals are behavioral cues that indicate a\", \"level\": 26, \"page\": 3}, {\"text\": \"to buy\", \"level\": 26, \"page\": 3}, {\"text\": \"What are buying signals ?\", \"level\": 36, \"page\": 4}, {\"text\": \"Importance of identifying buying signals:\", \"level\": 30, \"page\": 5}, {\"text\": \"\\u25cf\", \"level\": 24, \"page\": 5}, {\"text\": \"To address all customer`s doubts/objections that he has\", \"level\": 24, \"page\": 5}, {\"text\": \"before buying our service/ product\", \"level\": 24, \"page\": 5}, {\"text\": \"\\u25cf\", \"level\": 24, \"page\": 5}, {\"text\": \"Triggered to convert into a sale.\", \"level\": 24, \"page\": 5}, {\"text\": \"\\u25cf\", \"level\": 24, \"page\": 5}]",
+              "feature_document_structure_section_counts": 3,
+              "feature_layout_info_has_header_footer": true,
+              "feature_layout_info_multi_column": true,
+              "feature_layout_info_page_dimensions": "[{\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}, {\"width\": 720.0, \"height\": 405.0}]",
+              "feature_page_features": "[{\"page_number\": 1, \"text_blocks\": 3, \"word_count\": 10, \"char_count\": 73, \"image_count\": 1}, {\"page_number\": 2, \"text_blocks\": 3, \"word_count\": 34, \"char_count\": 211, \"image_count\": 1}, {\"page_number\": 3, \"text_blocks\": 3, \"word_count\": 25, \"char_count\": 145, \"image_count\": 1}, {\"page_number\": 4, \"text_blocks\": 3, \"word_count\": 4, \"char_count\": 26, \"image_count\": 2}, {\"page_number\": 5, \"text_blocks\": 5, \"word_count\": 32, \"char_count\": 201, \"image_count\": 2}, {\"page_number\": 6, \"text_blocks\": 4, \"word_count\": 23, \"char_count\": 128, \"image_count\": 2}, {\"page_number\": 7, \"text_blocks\": 9, \"word_count\": 92, \"char_count\": 476, \"image_count\": 2}, {\"page_number\": 8, \"text_blocks\": 6, \"word_count\": 56, \"char_count\": 323, \"image_count\": 1}, {\"page_number\": 9, \"text_blocks\": 5, \"word_count\": 45, \"char_count\": 273, \"image_count\": 2}, {\"page_number\": 10, \"text_blocks\": 7, \"word_count\": 60, \"char_count\": 364, \"image_count\": 1}, {\"page_number\": 11, \"text_blocks\": 4, \"word_count\": 80, \"char_count\": 425, \"image_count\": 1}, {\"page_number\": 12, \"text_blocks\": 9, \"word_count\": 111, \"char_count\": 562, \"image_count\": 0}, {\"page_number\": 13, \"text_blocks\": 7, \"word_count\": 131, \"char_count\": 666, \"image_count\": 0}, {\"page_number\": 14, \"text_blocks\": 11, \"word_count\": 203, \"char_count\": 1088, \"image_count\": 0}, {\"page_number\": 15, \"text_blocks\": 31, \"word_count\": 63, \"char_count\": 389, \"image_count\": 1}, {\"page_number\": 16, \"text_blocks\": 2, \"word_count\": 1, \"char_count\": 11, \"image_count\": 1}, {\"page_number\": 17, \"text_blocks\": 2, \"word_count\": 3, \"char_count\": 19, \"image_count\": 1}]",
+              "feature_readability_stats_avg_sentence_length": 15.950819672131148,
+              "feature_readability_stats_avg_word_length": 4.326824254881809,
+              "feature_readability_stats_complex_word_percentage": 7.194244604316546,
+              "file_size": 222968,
+              "filename": "[wb] identifying buying signals.pdf",
+              "folder": "pdfs",
+              "fonts_used": "[\"ArialMT\", \"Comfortaa-Regular\", \"Comfortaa-Bold\", \"BreeSerif-Regular\", \"Lato-Regular\", \"Lato-Bold\", \"Raleway-Bold\", \"Roboto-Regular\"]",
+              "has_annotations": false,
+              "has_embedded_files": false,
+              "has_forms": false,
+              "has_images": true,
+              "has_links": true,
+              "has_tables": false,
+              "has_toc": false,
+              "image_count": 19,
+              "is_encrypted": false,
+              "is_reflowable": false,
+              "keywords": "",
+              "languages": "unknown",
+              "modification_date": null,
+              "page": 12,
+              "page_count": 17,
+              "pdf_version": "unknown",
+              "permissions": "-4",
+              "producer": "",
+              "source": "pdfs/[wb] identifying buying signals.pdf",
+              "subject": "",
+              "table_count": 0,
+              "text": "[PAGE_BREAK: 13] How to react to a Buying Signai? Clarify and \u201cYes Yes Question\u201d: By making sure that a question is used on your own favor you can use this technique where you put the customer\u2019s concem first by clarifying any questions the customer may have and slightly move to a \u201cYes Yes Question\u201d which is asking a question where any of the answers wili benefit you. How much is the cost of the service? What we need to secure today is ONL Y $49.99 to start up the campaign and your monthly fee wili kick in after 30 days. We can start working on the account after we settle the reactivation fee. Are we going to use the card on file ending in XXXX or wili we use a new one?",
+              "title": "[WB] Identifying Buying Signals",
+              "toc": "",
+              "total_chars": 5380,
+              "total_words": 973
+            },
+            "id": "0399c9e3-f4f8-5843-bd9f-cf0f3ac328f7",
+            "created": "1747464397166"
+          }
+        ]
+      },
+      "vector_config": {
+        "type": "none",
+        "dimension": "N/A"
+      },
+      "storage": {},
+      "performance": {
+        "avg_query_time": 0.0015625,
+        "min_query_time": 0.0014197826385498047,
+        "max_query_time": 0.0017423629760742188,
+        "trials": 5
+      },
+      "property_types": {
+        "text": 29,
+        "int": 7,
+        "boolean": 11,
+        "number": 5,
+        "date": 2
+      }
+    }
+  ],
+  "performance": {
+    "benchmarks": {
+      "PDFDocuments": {
+        "avg_query_time": 0.0015625,
+        "min_query_time": 0.0014197826385498047,
+        "max_query_time": 0.0017423629760742188,
+        "trials": 5
+      }
+    }
+  },
+  "storage": {
+    "total_bytes": 0,
+    "total_formatted": "0 B"
+  },
+  "end_time": "2025-05-17T08:23:49.637815"
+}
