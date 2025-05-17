@@ -52,7 +52,7 @@ WEAVIATE_URL = os.getenv("WEAVIATE_URL", "http://localhost:8090")
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Weaviate Dashboard",
+    title="Weaviate_DB_Dashboard_411Local",
     description="REST API and Web Dashboard for managing and inspecting Weaviate databases",
     version="1.0.0"
 )

@@ -80,9 +80,9 @@ def get_weaviate_meta_info(base_url, headers):
 def get_weaviate_health(base_url, headers):
     """Check Weaviate health status"""
     try:
-        response = requests.get(f"{base_url}/v1/.well-known/health", headers=headers)
+        response = requests.get(f"{base_url}/v1/.well-known/ready", headers=headers)
         if response.status_code == 200:
-            return response.json()
+            return {"status": "OK"}
         else:
             print_error(f"Failed to get health status: {response.status_code} - {response.text}")
             return {}
