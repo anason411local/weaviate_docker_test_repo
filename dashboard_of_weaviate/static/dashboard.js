@@ -22,13 +22,13 @@ const elements = {
     
     totalClasses: document.getElementById('totalClasses'),
     totalObjects: document.getElementById('totalObjects'),
-    avgQueryTime: document.getElementById('avgQueryTime'),
     
     classesTableBody: document.getElementById('classesTableBody'),
     classesLoading: document.getElementById('classesLoading'),
     classesTableContainer: document.getElementById('classesTableContainer'),
     refreshBtn: document.getElementById('refreshBtn'),
     inspectBtn: document.getElementById('inspectBtn'),
+    createClassBtn: document.getElementById('createClassBtn'),
     
     // Class detail elements
     classDetailTitle: document.getElementById('classDetailTitle'),
@@ -46,6 +46,17 @@ const elements = {
     sampleObjectsContainer: document.getElementById('sampleObjectsContainer'),
     viewAllObjectsBtn: document.getElementById('viewAllObjectsBtn'),
     
+    // Query elements
+    queryForm: document.getElementById('queryForm'),
+    queryText: document.getElementById('queryText'),
+    queryType: document.getElementById('queryType'),
+    queryLimit: document.getElementById('queryLimit'),
+    runQueryBtn: document.getElementById('runQueryBtn'),
+    queryResults: document.getElementById('queryResults'),
+    queryInfo: document.getElementById('queryInfo'),
+    queryResultsContainer: document.getElementById('queryResultsContainer'),
+    queryLoading: document.getElementById('queryLoading'),
+    
     // Inspections elements
     inspectionsLoading: document.getElementById('inspectionsLoading'),
     inspectionsTableContainer: document.getElementById('inspectionsTableContainer'),
@@ -60,7 +71,32 @@ const elements = {
     newInspectionModal: new bootstrap.Modal(document.getElementById('newInspectionModal')),
     includeSamplesCheck: document.getElementById('includeSamplesCheck'),
     runBenchmarksCheck: document.getElementById('runBenchmarksCheck'),
-    startInspectionBtn: document.getElementById('startInspectionBtn')
+    startInspectionBtn: document.getElementById('startInspectionBtn'),
+    
+    // New Class Modal
+    newClassModal: new bootstrap.Modal(document.getElementById('newClassModal')),
+    newClassName: document.getElementById('newClassName'),
+    classDescription: document.getElementById('classDescription'),
+    vectorizer: document.getElementById('vectorizer'),
+    vectorDimension: document.getElementById('vectorDimension'),
+    propertiesContainer: document.getElementById('propertiesContainer'),
+    addPropertyBtn: document.getElementById('addPropertyBtn'),
+    createClassError: document.getElementById('createClassError'),
+    createClassSubmitBtn: document.getElementById('createClassSubmitBtn'),
+    
+    // Update Class Modal
+    updateClassModal: new bootstrap.Modal(document.getElementById('updateClassModal')),
+    updateClassName: document.getElementById('updateClassName'),
+    updateVectorizer: document.getElementById('updateVectorizer'),
+    updateVectorDimension: document.getElementById('updateVectorDimension'),
+    updateVectorizeClassName: document.getElementById('updateVectorizeClassName'),
+    updateMaxConnections: document.getElementById('updateMaxConnections'),
+    updateEfConstruction: document.getElementById('updateEfConstruction'),
+    updateDistanceMetric: document.getElementById('updateDistanceMetric'),
+    updateClassError: document.getElementById('updateClassError'),
+    updateClassSubmitBtn: document.getElementById('updateClassSubmitBtn'),
+    updatePropContainer: document.getElementById('updatePropContainer'),
+    updateClassSuccess: document.getElementById('updateClassSuccess'),
 };
 
 // Current state
@@ -70,7 +106,8 @@ let state = {
     classes: [],
     inspections: [],
     meta: {},
-    classToDelete: null
+    classToDelete: null,
+    classToUpdate: null
 };
 
 // API request helper
@@ -178,12 +215,10 @@ async function loadClasses() {
         
         // Calculate totals
         const totalObjects = classes.reduce((sum, cls) => sum + cls.object_count, 0);
-        const avgQueryTime = 0; // We'd need to run benchmarks to get this
         
         // Update stats
         elements.totalClasses.textContent = classes.length;
         elements.totalObjects.textContent = totalObjects;
-        elements.avgQueryTime.textContent = avgQueryTime || 'N/A';
         
         // Render classes table
         renderClassesTable(classes);
@@ -217,6 +252,9 @@ function renderClassesTable(classes) {
                     <button class="btn btn-sm btn-outline-primary view-class-btn" data-class="${cls.class_name}">
                         <i class="bi bi-eye"></i>
                     </button>
+                    <button class="btn btn-sm btn-outline-warning update-class-btn" data-class="${cls.class_name}">
+                        <i class="bi bi-pencil"></i>
+                    </button>
                     <button class="btn btn-sm btn-outline-danger delete-class-btn" data-class="${cls.class_name}">
                         <i class="bi bi-trash"></i>
                     </button>
@@ -234,6 +272,14 @@ function renderClassesTable(classes) {
             e.stopPropagation();
             const className = btn.getAttribute('data-class');
             loadClassDetail(className);
+        });
+    });
+    
+    document.querySelectorAll('.update-class-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const className = btn.getAttribute('data-class');
+            showUpdateClassModal(className);
         });
     });
     
@@ -303,6 +349,16 @@ async function loadClassDetail(className) {
             window.open(`/objects/${className}`, '_blank');
         };
         
+        // Setup query form 
+        elements.queryForm.onsubmit = (e) => {
+            e.preventDefault();
+            runQuery(className);
+        };
+        
+        // Reset query form and results
+        elements.queryText.value = '';
+        elements.queryResults.style.display = 'none';
+        
         // Show class info
         elements.classDetailInfo.style.display = 'block';
         
@@ -323,8 +379,14 @@ function renderSampleObjects(objects) {
     }
     
     const objectsHtml = objects.map((obj, index) => {
-        // Get object ID
+        // Get object ID and metadata
         const id = obj._additional?.id || 'Unknown';
+        const creationTime = obj._additional?.creationTimeUnix ? 
+            new Date(obj._additional.creationTimeUnix).toLocaleString() : 'Unknown';
+        
+        // Check if vector data is available
+        const hasVector = !!obj._additional?.vector;
+        const vectorLength = hasVector ? obj._additional.vector.length : 0;
         
         // Prepare properties display
         const propertiesHtml = Object.entries(obj)
@@ -345,16 +407,55 @@ function renderSampleObjects(objects) {
                 </tr>`;
             }).join('');
         
+        // Add metadata section
+        const metadataHtml = `
+            <tr class="table-secondary">
+                <td colspan="2"><strong>Metadata</strong></td>
+            </tr>
+            <tr>
+                <td width="30%"><strong>ID</strong></td>
+                <td>${id}</td>
+            </tr>
+            <tr>
+                <td width="30%"><strong>Created</strong></td>
+                <td>${creationTime}</td>
+            </tr>
+        `;
+
+        // Add vector section separately
+        const vectorHtml = hasVector ? `
+            <tr class="table-info">
+                <td colspan="2"><strong>Vector Information</strong></td>
+            </tr>
+            <tr>
+                <td width="30%"><strong>Vector Dimensions</strong></td>
+                <td>${vectorLength}</td>
+            </tr>
+            <tr>
+                <td width="30%"><strong>Vector</strong></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-secondary toggle-vector-btn" data-index="${index}">
+                        <i class="bi bi-eye"></i> Show/Hide Vector
+                    </button>
+                    <div class="vector-preview" id="vector-preview-${index}" style="display: none; margin-top: 10px; max-height: 200px; overflow-y: auto;">
+                        <pre class="mb-0"><code>${hasVector ? JSON.stringify(obj._additional.vector, null, 2) : 'No vector data'}</code></pre>
+                    </div>
+                </td>
+            </tr>
+        ` : '';
+        
         return `
             <div class="card mb-3">
                 <div class="card-header bg-light">
-                    Object ${index + 1} - ID: ${id}
+                    Object ${index + 1}
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
                         <table class="table table-sm">
                             <tbody>
                                 ${propertiesHtml}
+                                ${metadataHtml}
+                                ${vectorHtml}
                             </tbody>
                         </table>
                     </div>
@@ -364,6 +465,21 @@ function renderSampleObjects(objects) {
     }).join('');
     
     elements.sampleObjectsContainer.innerHTML = objectsHtml;
+    
+    // Add event listeners to toggle vector display
+    document.querySelectorAll('.toggle-vector-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const index = btn.getAttribute('data-index');
+            const preview = document.getElementById(`vector-preview-${index}`);
+            if (preview) {
+                const isVisible = preview.style.display !== 'none';
+                preview.style.display = isVisible ? 'none' : 'block';
+                btn.innerHTML = isVisible ? 
+                    '<i class="bi bi-eye"></i> Show Vector' : 
+                    '<i class="bi bi-eye-slash"></i> Hide Vector';
+            }
+        });
+    });
 }
 
 // Show delete class confirmation modal
@@ -492,6 +608,774 @@ async function startInspection() {
     }
 }
 
+// Run a query against a class
+async function runQuery(className) {
+    try {
+        const queryText = elements.queryText.value.trim();
+        if (!queryText) {
+            alert('Please enter a query');
+            return;
+        }
+        
+        const queryType = elements.queryType.value;
+        const limit = parseInt(elements.queryLimit.value) || 5;
+        
+        // Show loading
+        elements.queryResults.style.display = 'none';
+        elements.queryLoading.style.display = 'flex';
+        
+        // Send the query
+        const response = await fetchAPI('/query', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                class_name: className,
+                query_text: queryText,
+                limit: limit,
+                search_type: queryType
+            })
+        });
+        
+        // Display results
+        elements.queryInfo.innerHTML = `
+            <strong>${queryType.charAt(0).toUpperCase() + queryType.slice(1)} search</strong> for: "${queryText}"
+            <br>
+            Found ${response.results ? response.results.length : 0} results
+            <div class="mt-2">
+                <button class="btn btn-sm btn-outline-primary open-in-new-tab-btn">
+                    <i class="bi bi-box-arrow-up-right"></i> Open in New Tab
+                </button>
+            </div>
+        `;
+        
+        // Add event listener to the "Open in New Tab" button
+        document.querySelector('.open-in-new-tab-btn').addEventListener('click', () => {
+            const resultsUrl = `/results?query=${encodeURIComponent(queryText)}&class=${encodeURIComponent(className)}&type=${encodeURIComponent(queryType)}&limit=${limit}`;
+            window.open(resultsUrl, '_blank');
+        });
+        
+        if (response.status === 'success' && response.results && response.results.length > 0) {
+            // Render results
+            const resultsHtml = response.results.map((result, index) => {
+                // Basic object info
+                const id = result.id || result._additional?.id || 'Unknown';
+                
+                // Format the creation time correctly
+                let creationTime = 'Unknown';
+                if (result._additional?.creationTimeUnix) {
+                    // Convert unix timestamp (milliseconds) to Date object
+                    const timestamp = parseInt(result._additional.creationTimeUnix);
+                    if (!isNaN(timestamp)) {
+                        creationTime = new Date(timestamp).toLocaleString();
+                    }
+                }
+                
+                // Check if this result has search_type (for combined search)
+                const searchType = result._additional?.search_type;
+                const searchTypeBadge = searchType ? 
+                    `<span class="badge ${searchType === 'vector' ? 'bg-primary' : 'bg-success'} ms-2">${searchType}</span>` : '';
+                
+                // Extract key document properties
+                const text = result.text || '';
+                const source = result.source || '';
+                const filename = result.filename || '';
+                const page = result.page !== undefined ? `Page ${result.page}` : '';
+                
+                // Display document source information
+                const sourceInfo = filename ? 
+                    `<div class="alert alert-secondary">
+                        <strong>Source:</strong> ${filename} ${page ? `(${page})` : ''}
+                     </div>` : '';
+                
+                // Display text excerpt
+                const textExcerpt = text ? 
+                    `<div class="card mb-3">
+                        <div class="card-header">Text excerpt</div>
+                        <div class="card-body">
+                            <p>${text.length > 500 ? text.substring(0, 500) + '...' : text}</p>
+                        </div>
+                     </div>` : '';
+                
+                // Format properties (excluding text and source which we display separately)
+                const propertiesHtml = Object.entries(result)
+                    .filter(([key]) => key !== '_additional' && key !== 'text' && key !== 'source' && key !== 'filename' && key !== 'page')
+                    .map(([key, value]) => {
+                        let displayValue = value;
+                        
+                        // Format display value based on type
+                        if (typeof value === 'object') {
+                            displayValue = JSON.stringify(value).substring(0, 100) + (JSON.stringify(value).length > 100 ? '...' : '');
+                        } else if (typeof value === 'string' && value.length > 100) {
+                            displayValue = value.substring(0, 100) + '...';
+                        }
+                        
+                        return `<tr>
+                            <td width="30%"><strong>${key}</strong></td>
+                            <td>${displayValue}</td>
+                        </tr>`;
+                    }).join('');
+                
+                // Format certainty if available (for vector search)
+                const certaintyHtml = result._additional?.certainty ? `
+                    <tr>
+                        <td width="30%"><strong>Certainty</strong></td>
+                        <td>${(result._additional.certainty * 100).toFixed(2)}%</td>
+                    </tr>
+                ` : '';
+                
+                // Check if vector data is available
+                const hasVector = !!result._additional?.vector;
+                const vectorLength = hasVector ? result._additional.vector.length : 0;
+                
+                // Add vector section separately
+                const vectorHtml = hasVector ? `
+                    <tr class="table-info">
+                        <td colspan="2"><strong>Vector Information</strong></td>
+                    </tr>
+                    <tr>
+                        <td width="30%"><strong>Vector Dimensions</strong></td>
+                        <td>${vectorLength}</td>
+                    </tr>
+                    <tr>
+                        <td width="30%"><strong>Vector</strong></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-secondary toggle-vector-btn" data-index="result-${index}">
+                                <i class="bi bi-eye"></i> Show/Hide Vector
+                            </button>
+                            <div class="vector-preview" id="vector-preview-result-${index}" style="display: none; margin-top: 10px; max-height: 200px; overflow-y: auto;">
+                                <pre class="mb-0"><code>${hasVector ? JSON.stringify(result._additional.vector, null, 2) : 'No vector data'}</code></pre>
+                            </div>
+                        </td>
+                    </tr>
+                ` : '';
+                
+                return `
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            Result ${index + 1} - ID: ${id.substring(0, 8)}... ${searchTypeBadge}
+                        </div>
+                        <div class="card-body">
+                            ${sourceInfo}
+                            ${textExcerpt}
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <tbody>
+                                        ${propertiesHtml ? `
+                                            <tr class="table-secondary">
+                                                <td colspan="2"><strong>Properties</strong></td>
+                                            </tr>
+                                            ${propertiesHtml}
+                                        ` : ''}
+                                        <tr class="table-secondary">
+                                            <td colspan="2"><strong>Metadata</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td width="30%"><strong>Created</strong></td>
+                                            <td>${creationTime}</td>
+                                        </tr>
+                                        ${certaintyHtml}
+                                        ${vectorHtml}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            elements.queryResultsContainer.innerHTML = resultsHtml;
+            
+            // Add event listeners to toggle vector display
+            document.querySelectorAll('.toggle-vector-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = btn.getAttribute('data-index');
+                    const preview = document.getElementById(`vector-preview-${index}`);
+                    if (preview) {
+                        const isVisible = preview.style.display !== 'none';
+                        preview.style.display = isVisible ? 'none' : 'block';
+                        btn.innerHTML = isVisible ? 
+                            '<i class="bi bi-eye"></i> Show Vector' : 
+                            '<i class="bi bi-eye-slash"></i> Hide Vector';
+                    }
+                });
+            });
+        } else if (response.status === 'error') {
+            elements.queryResultsContainer.innerHTML = `<div class="alert alert-danger">${response.message}</div>`;
+        } else {
+            elements.queryResultsContainer.innerHTML = `<div class="alert alert-warning">No results found</div>`;
+        }
+        
+        // Show results
+        elements.queryResults.style.display = 'block';
+    } catch (error) {
+        console.error('Error running query:', error);
+        elements.queryResultsContainer.innerHTML = `<div class="alert alert-danger">Error running query: ${error.message}</div>`;
+        elements.queryResults.style.display = 'block';
+    } finally {
+        elements.queryLoading.style.display = 'none';
+    }
+}
+
+// Create a new class
+async function createClass() {
+    try {
+        elements.createClassError.style.display = 'none';
+        
+        // Validate class name (required)
+        const className = elements.newClassName.value.trim();
+        if (!className) {
+            throw new Error('Class name is required');
+        }
+        
+        // Validate class name format (should be CamelCase)
+        if (!/^[A-Z][a-zA-Z0-9]*$/.test(className)) {
+            throw new Error('Class name should start with uppercase letter and only contain letters and numbers (CamelCase)');
+        }
+        
+        // Get description (optional)
+        const description = elements.classDescription.value.trim();
+        
+        // Get vectorizer
+        const vectorizer = elements.vectorizer.value;
+        
+        // Get vector dimension
+        const vectorDimension = parseInt(elements.vectorDimension.value);
+        if (isNaN(vectorDimension) || vectorDimension < 2) {
+            throw new Error('Vector dimension must be at least 2');
+        }
+        
+        // Collect properties
+        const properties = [];
+        const propertyRows = elements.propertiesContainer.querySelectorAll('.property-row');
+        
+        if (propertyRows.length === 0) {
+            throw new Error('At least one property is required');
+        }
+        
+        propertyRows.forEach(row => {
+            const name = row.querySelector('.property-name').value.trim();
+            const dataType = row.querySelector('.property-datatype').value;
+            const indexInverted = row.querySelector('.property-index').value === 'true';
+            const description = row.querySelector('.property-description').value.trim();
+            
+            if (!name) {
+                throw new Error('All properties must have a name');
+            }
+            
+            // Create property object
+            const property = {
+                name: name,
+                dataType: [dataType],
+                indexInverted: indexInverted
+            };
+            
+            if (description) {
+                property.description = description;
+            }
+            
+            properties.push(property);
+        });
+        
+        // Create class request
+        const requestData = {
+            class_name: className,
+            vectorizer: vectorizer,
+            vector_dimension: vectorDimension,
+            properties: properties
+        };
+        
+        if (description) {
+            requestData.description = description;
+        }
+        
+        // Send request to create class
+        const response = await fetchAPI('/classes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        // Hide modal
+        elements.newClassModal.hide();
+        
+        // Reload classes to show the new class
+        await loadClasses();
+        
+        // Show success alert
+        alert(`Class "${className}" successfully created`);
+        
+    } catch (error) {
+        console.error('Error creating class:', error);
+        elements.createClassError.textContent = `Error: ${error.message}`;
+        elements.createClassError.style.display = 'block';
+    }
+}
+
+// Add a new property row
+function addPropertyRow() {
+    const propertyTemplate = `
+        <div class="property-row mb-3 border p-3 rounded">
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label">Name</label>
+                    <input type="text" class="form-control property-name" placeholder="e.g., text, title, content" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Data Type</label>
+                    <select class="form-select property-datatype">
+                        <option value="text">text</option>
+                        <option value="string">string</option>
+                        <option value="int">int</option>
+                        <option value="number">number</option>
+                        <option value="boolean">boolean</option>
+                        <option value="date">date</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Index</label>
+                    <select class="form-select property-index">
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                    </select>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-property-btn"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+            <div class="mt-2">
+                <label class="form-label">Description (optional)</label>
+                <input type="text" class="form-control property-description" placeholder="Property description">
+            </div>
+        </div>
+    `;
+    
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = propertyTemplate.trim();
+    const propertyRow = tempDiv.firstChild;
+    
+    // Add event listener to remove button
+    propertyRow.querySelector('.remove-property-btn').addEventListener('click', function() {
+        propertyRow.remove();
+    });
+    
+    elements.propertiesContainer.appendChild(propertyRow);
+}
+
+// Function to show the update class modal
+function showUpdateClassModal(className) {
+    state.classToUpdate = className;
+    elements.updateClassName.value = className;
+    elements.updateClassError.style.display = 'none';
+    elements.updatePropContainer.innerHTML = ''; // Clear existing property fields
+    
+    // Fetch the current class configuration
+    fetchAPI(`/classes/${className}`)
+        .then(classData => {
+            // Populate the form with the current values
+            if (classData.vector_config) {
+                // Set vectorizer
+                elements.updateVectorizer.value = classData.vector_config.type || 'none';
+                
+                // Set vector dimension
+                if (classData.vector_config.dimension) {
+                    elements.updateVectorDimension.value = classData.vector_config.dimension;
+                } else {
+                    elements.updateVectorDimension.value = '';
+                }
+                
+                // Set distance metric if available
+                if (classData.vector_index_config && classData.vector_index_config.distance) {
+                    elements.updateDistanceMetric.value = classData.vector_index_config.distance;
+                } else {
+                    elements.updateDistanceMetric.value = 'cosine';
+                }
+                
+                // Set vector index config values if available
+                if (classData.vector_index_config) {
+                    elements.updateMaxConnections.value = classData.vector_index_config.maxConnections || '';
+                    elements.updateEfConstruction.value = classData.vector_index_config.efConstruction || '';
+                }
+            }
+            
+            // Set vectorize class name if available
+            if (classData.module_config && 
+                classData.vector_config && 
+                classData.vector_config.type !== 'none' &&
+                classData.module_config[classData.vector_config.type] &&
+                'vectorizeClassName' in classData.module_config[classData.vector_config.type]) {
+                
+                elements.updateVectorizeClassName.checked = 
+                    classData.module_config[classData.vector_config.type].vectorizeClassName;
+            } else {
+                elements.updateVectorizeClassName.checked = false;
+            }
+            
+            // Display current properties
+            if (classData.properties && classData.properties.length > 0) {
+                const propertiesDiv = document.createElement('div');
+                propertiesDiv.className = 'mb-4';
+                propertiesDiv.innerHTML = `
+                    <h5>Current Properties</h5>
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Data Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${classData.properties.map(prop => `
+                                <tr>
+                                    <td>${prop.name}</td>
+                                    <td><span class="badge badge-secondary">${Array.isArray(prop.dataType) ? prop.dataType.join(', ') : prop.dataType}</span></td>
+                                    <td>${prop.description || ''}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                elements.updatePropContainer.appendChild(propertiesDiv);
+            }
+            
+            // Create section for adding new properties
+            const newPropsDiv = document.createElement('div');
+            newPropsDiv.className = 'mb-4';
+            newPropsDiv.innerHTML = `
+                <h5>Add New Property</h5>
+                <p class="text-info small">
+                    <i class="bi bi-info-circle"></i> 
+                    Adding properties to existing collections has limitations. The new property will only be indexed 
+                    for new objects, not existing ones.
+                </p>
+                <div id="newPropertiesContainer">
+                    <div class="property-input mb-3 p-3 border rounded">
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label">Property Name</label>
+                                <input type="text" class="form-control property-name" placeholder="Property name">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Data Type</label>
+                                <select class="form-select property-datatype">
+                                    <option value="text">Text</option>
+                                    <option value="int">Integer</option>
+                                    <option value="number">Number</option>
+                                    <option value="boolean">Boolean</option>
+                                    <option value="date">Date</option>
+                                    <option value="text[]">Text Array</option>
+                                    <option value="int[]">Integer Array</option>
+                                    <option value="number[]">Number Array</option>
+                                    <option value="boolean[]">Boolean Array</option>
+                                    <option value="date[]">Date Array</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-md-12">
+                                <label class="form-label">Description (optional)</label>
+                                <input type="text" class="form-control property-description" placeholder="Property description">
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label">Tokenization (optional)</label>
+                                <select class="form-select property-tokenization">
+                                    <option value="">Default</option>
+                                    <option value="word">Word</option>
+                                    <option value="lowercase">Lowercase</option>
+                                    <option value="whitespace">Whitespace</option>
+                                    <option value="field">Field</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input property-index" type="checkbox" checked>
+                                    <label class="form-check-label">
+                                        Index this property
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="updateAddPropertyBtn">
+                    <i class="bi bi-plus-circle"></i> Add Another Property
+                </button>
+            `;
+            elements.updatePropContainer.appendChild(newPropsDiv);
+            
+            // Add handler for "Add Another Property" button
+            document.getElementById('updateAddPropertyBtn').addEventListener('click', addPropertyField);
+
+            // Add an inverted index config section
+            const invertedIndexDiv = document.createElement('div');
+            invertedIndexDiv.className = 'mb-4';
+            invertedIndexDiv.innerHTML = `
+                <h5>Inverted Index Configuration</h5>
+                <p class="text-info small">
+                    <i class="bi bi-info-circle"></i> 
+                    You may need to delete and recreate the collection to change some of these settings if you have existing data.
+                </p>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="updateIndexNullState" 
+                                ${classData.inverted_index_config && classData.inverted_index_config.indexNullState ? 'checked' : ''}>
+                            <label class="form-check-label" for="updateIndexNullState">
+                                Index Null State
+                            </label>
+                            <div class="form-text small">Enables filtering on null/not-null property values</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="updateIndexPropertyLength" 
+                                ${classData.inverted_index_config && classData.inverted_index_config.indexPropertyLength ? 'checked' : ''}>
+                            <label class="form-check-label" for="updateIndexPropertyLength">
+                                Index Property Length
+                            </label>
+                            <div class="form-text small">Enables filtering on property length</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="updateIndexTimestamps" 
+                                ${classData.inverted_index_config && classData.inverted_index_config.indexTimestamps ? 'checked' : ''}>
+                            <label class="form-check-label" for="updateIndexTimestamps">
+                                Index Timestamps
+                            </label>
+                            <div class="form-text small">Enables filtering on creation/update times</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">BM25 k1 Parameter</label>
+                        <input type="number" class="form-control" id="updateBM25k1" step="0.1" min="0" 
+                            value="${classData.inverted_index_config && classData.inverted_index_config.bm25 ? classData.inverted_index_config.bm25.k1 : 1.2}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">BM25 b Parameter</label>
+                        <input type="number" class="form-control" id="updateBM25b" step="0.1" min="0" max="1" 
+                            value="${classData.inverted_index_config && classData.inverted_index_config.bm25 ? classData.inverted_index_config.bm25.b : 0.75}">
+                    </div>
+                </div>
+            `;
+            elements.updatePropContainer.appendChild(invertedIndexDiv);
+            
+            // Show the modal
+            elements.updateClassModal.show();
+        })
+        .catch(error => {
+            console.error('Error fetching class data:', error);
+            elements.updateClassError.innerText = 'Error loading class data: ' + error.message;
+            elements.updateClassError.style.display = 'block';
+        });
+}
+
+// Function to add a new property input field
+function addPropertyField() {
+    // Find the container for new properties
+    const container = document.getElementById('newPropertiesContainer');
+    
+    if (!container) {
+        console.error('Property container not found');
+        return;
+    }
+    
+    const newField = document.createElement('div');
+    newField.className = 'property-input mb-3 p-3 border rounded';
+    newField.innerHTML = `
+        <div class="row mb-2">
+            <div class="col-md-6">
+                <label class="form-label">Property Name</label>
+                <input type="text" class="form-control property-name" placeholder="Property name">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Data Type</label>
+                <select class="form-select property-datatype">
+                    <option value="text">Text</option>
+                    <option value="int">Integer</option>
+                    <option value="number">Number</option>
+                    <option value="boolean">Boolean</option>
+                    <option value="date">Date</option>
+                    <option value="text[]">Text Array</option>
+                    <option value="int[]">Integer Array</option>
+                    <option value="number[]">Number Array</option>
+                    <option value="boolean[]">Boolean Array</option>
+                    <option value="date[]">Date Array</option>
+                </select>
+            </div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-md-12">
+                <label class="form-label">Description (optional)</label>
+                <input type="text" class="form-control property-description" placeholder="Property description">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <label class="form-label">Tokenization (optional)</label>
+                <select class="form-select property-tokenization">
+                    <option value="">Default</option>
+                    <option value="word">Word</option>
+                    <option value="lowercase">Lowercase</option>
+                    <option value="whitespace">Whitespace</option>
+                    <option value="field">Field</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <div class="form-check mt-4">
+                    <input class="form-check-input property-index" type="checkbox" checked>
+                    <label class="form-check-label">
+                        Index this property
+                    </label>
+                </div>
+            </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-danger mt-2 remove-property-btn">
+            <i class="bi bi-trash"></i> Remove
+        </button>
+    `;
+    
+    container.appendChild(newField);
+    
+    // Add event listener for the remove button
+    newField.querySelector('.remove-property-btn').addEventListener('click', function() {
+        container.removeChild(newField);
+    });
+}
+
+// Function to update a class with new configuration
+function updateClass() {
+    const className = state.classToUpdate;
+    elements.updateClassError.style.display = 'none';
+    elements.updateClassSubmitBtn.disabled = true;
+    elements.updateClassSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
+    
+    // Gather the base configuration from form fields
+    const config = {
+        vectorizer: elements.updateVectorizer.value,
+        distance: elements.updateDistanceMetric.value,
+        max_connections: elements.updateMaxConnections.value ? parseInt(elements.updateMaxConnections.value) : null,
+        ef_construction: elements.updateEfConstruction.value ? parseInt(elements.updateEfConstruction.value) : null,
+        vector_dimension: elements.updateVectorDimension.value ? parseInt(elements.updateVectorDimension.value) : null,
+        vectorize_class_name: elements.updateVectorizeClassName.checked
+    };
+    
+    // Gather new properties from the form
+    const newProperties = [];
+    document.querySelectorAll('.property-input').forEach(propInput => {
+        const name = propInput.querySelector('.property-name').value.trim();
+        if (name) {
+            let dataType = propInput.querySelector('.property-datatype').value;
+            
+            // Format data type as array for Weaviate API
+            if (dataType.endsWith('[]')) {
+                // Convert "text[]" to ["text[]"]
+                dataType = [dataType];
+            } else {
+                // Convert "text" to ["text"]
+                dataType = [dataType];
+            }
+            
+            const property = {
+                name: name,
+                dataType: dataType,
+                indexInverted: propInput.querySelector('.property-index').checked
+            };
+            
+            const description = propInput.querySelector('.property-description').value.trim();
+            if (description) {
+                property.description = description;
+            }
+            
+            const tokenization = propInput.querySelector('.property-tokenization').value;
+            if (tokenization) {
+                property.tokenization = tokenization;
+            }
+            
+            newProperties.push(property);
+        }
+    });
+    
+    // Add properties to config if we have any
+    if (newProperties.length > 0) {
+        config.add_properties = newProperties;
+    }
+    
+    // Get inverted index configuration
+    const invertedIndexConfig = {
+        indexNullState: document.getElementById('updateIndexNullState').checked,
+        indexPropertyLength: document.getElementById('updateIndexPropertyLength').checked,
+        indexTimestamps: document.getElementById('updateIndexTimestamps').checked,
+        bm25: {
+            k1: parseFloat(document.getElementById('updateBM25k1').value),
+            b: parseFloat(document.getElementById('updateBM25b').value)
+        }
+    };
+    
+    // Add inverted index config to the main config
+    config.inverted_index_config = invertedIndexConfig;
+    
+    // Update the class with the new configuration
+    fetchAPI(`/classes/${className}/config`, {
+        method: 'PUT',
+        body: JSON.stringify(config)
+    })
+        .then(response => {
+            // Re-enable form and show success
+            elements.updateClassSubmitBtn.disabled = false;
+            elements.updateClassSubmitBtn.innerHTML = 'Update Collection';
+            
+            if (response.status === 'success') {
+                elements.updateClassSuccess.innerText = 'Collection updated successfully!';
+                elements.updateClassSuccess.style.display = 'block';
+                
+                // Hide success message after a delay
+                setTimeout(() => {
+                    elements.updateClassModal.hide();
+                    elements.updateClassSuccess.style.display = 'none';
+                    loadClasses(); // Refresh the class list
+                }, 1500);
+            } else {
+                // Handle partial success/failure
+                let message = 'Update completed with some issues:';
+                
+                if (response.config_update === 'error') {
+                    message += '\n- Error updating collection configuration';
+                    if (response.config_message) {
+                        message += ': ' + response.config_message;
+                    }
+                }
+                
+                if (response.property_updates) {
+                    const failedProps = response.property_updates.filter(p => p.status === 'error');
+                    if (failedProps.length > 0) {
+                        message += '\n- Failed to add ' + failedProps.length + ' properties';
+                    }
+                }
+                
+                elements.updateClassError.innerText = message;
+                elements.updateClassError.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Error updating class:', error);
+            elements.updateClassSubmitBtn.disabled = false;
+            elements.updateClassSubmitBtn.innerHTML = 'Update Collection';
+            elements.updateClassError.innerText = 'Error updating collection: ' + error.message;
+            elements.updateClassError.style.display = 'block';
+        });
+}
+
 // Initialize the dashboard
 function initDashboard() {
     // Navigation listeners
@@ -524,6 +1408,31 @@ function initDashboard() {
     elements.inspectBtn.addEventListener('click', () => {
         elements.newInspectionModal.show();
     });
+
+    // Create Class button
+    elements.createClassBtn.addEventListener('click', () => {
+        // Reset the form
+        elements.newClassName.value = '';
+        elements.classDescription.value = '';
+        elements.vectorizer.value = 'none';
+        elements.vectorDimension.value = '768';
+        
+        // Clear properties container except for the first property
+        elements.propertiesContainer.innerHTML = '';
+        addPropertyRow();
+        
+        // Clear errors
+        elements.createClassError.style.display = 'none';
+        
+        // Show modal
+        elements.newClassModal.show();
+    });
+    
+    // Add Property button
+    elements.addPropertyBtn.addEventListener('click', addPropertyRow);
+    
+    // Create Class Submit button
+    elements.createClassSubmitBtn.addEventListener('click', createClass);
     
     // New inspection button
     elements.newInspectionBtn.addEventListener('click', () => {
@@ -541,6 +1450,21 @@ function initDashboard() {
             deleteClass(state.classToDelete);
         }
     });
+    
+    // Initialize first property row remove button
+    const firstPropertyRow = elements.propertiesContainer.querySelector('.property-row');
+    if (firstPropertyRow) {
+        firstPropertyRow.querySelector('.remove-property-btn').addEventListener('click', function() {
+            if (elements.propertiesContainer.querySelectorAll('.property-row').length > 1) {
+                firstPropertyRow.remove();
+            } else {
+                alert('At least one property is required');
+            }
+        });
+    }
+    
+    // Update class submit button
+    elements.updateClassSubmitBtn.addEventListener('click', updateClass);
     
     // Initial view
     showView('dashboard');

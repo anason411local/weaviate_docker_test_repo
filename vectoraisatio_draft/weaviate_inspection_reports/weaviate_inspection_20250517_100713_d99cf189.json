@@ -1,0 +1,662 @@
+{
+  "id": "20250517_100713_d99cf189",
+  "timestamp": "2025-05-17T10:07:13.215902",
+  "server_info": {
+    "grpcMaxMessageSize": 104858000,
+    "hostname": "http://[::]:8090",
+    "modules": {},
+    "version": "1.30.2"
+  },
+  "health_check": {},
+  "collections": [
+    {
+      "name": "PDFDocuments",
+      "properties": [
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "text",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "source",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "filename",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "folder",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "page"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "title",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "author",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "subject",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "keywords",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "creation_date",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "modification_date",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "page_count"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "file_size"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_images"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "image_count"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "languages",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_layout_info_multi_column"
+        },
+        {
+          "dataType": [
+            "number"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_readability_stats_avg_sentence_length"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_toc"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_links"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_forms"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_annotations"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "is_encrypted"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "is_reflowable"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_embedded_files"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "producer",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "pdf_version",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "toc",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "table_count"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "total_chars"
+        },
+        {
+          "dataType": [
+            "int"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "total_words"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "encryption_method",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "permissions",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "embedded_file_names",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "embedded_files_info",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "fonts_used",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "cover_image",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "has_tables"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "document_mimeType",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "date"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "document_createdTime"
+        },
+        {
+          "dataType": [
+            "boolean"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_layout_info_has_header_footer"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "document_name",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "document_size",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "document_lastModifyingUser",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "feature_page_features",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "feature_document_structure_heading_levels",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "number"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_document_structure_section_counts"
+        },
+        {
+          "dataType": [
+            "date"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "document_modifiedTime"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "feature_layout_info_page_dimensions",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "number"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_document_structure_avg_section_length"
+        },
+        {
+          "dataType": [
+            "number"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_readability_stats_avg_word_length"
+        },
+        {
+          "dataType": [
+            "number"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": false,
+          "name": "feature_readability_stats_complex_word_percentage"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "document_owners",
+          "tokenization": "word"
+        },
+        {
+          "dataType": [
+            "text"
+          ],
+          "description": "This property was generated by Weaviate's auto-schema feature on Sat May 17 06:45:34 2025",
+          "indexFilterable": true,
+          "indexRangeFilters": false,
+          "indexSearchable": true,
+          "name": "creator",
+          "tokenization": "word"
+        }
+      ],
+      "objects": {
+        "count": 124,
+        "count_query_time": 0.0012760162353515625,
+        "sample_query_time": 0.006774187088012695,
+        "samples": [
+          {
+            "properties": {
+              "text": "[PAGE_BREAK: 4] Talk Numbers \u25cf Last week alone we delivered over 5000 leads to our customers, that`s a little over 250% more than what we did in the 3rd week of March, when this ali started. Now, I don't want you to mistake my urgency with pressure, but more and more businesses are contacting us, to promote their business. There are 77% more new businesses registered in the states this last quarter, compared to Q2. Thats HUGE! And they are ali trying to lift their way off the ground. I would hate to see someone like that take over your spot and your potentiai customers, I believe you deserve to be there. \u25cf Don't mistake my urgency with pressure, but I got whole sales team looking to close this position. We get about 100 inquiries daily for our services. If one of them is your competitor, they wili fili in the slot and I don't want that to happen, I would much rather work with you.",
+              "title": "[WB] Creating Urgency - Sales technique",
+              "source": "pdfs/[wb] creating urgency - sales technique.pdf",
+              "filename": "[wb] creating urgency - sales technique.pdf"
+            },
+            "id": "0024c8c9-9625-54ea-822a-6b5bcb503656",
+            "created": "1747464414264",
+            "vector_length": 1024
+          },
+          {
+            "properties": {
+              "text": "Shiny new one? \u2605 I can see there is a card on file ending in ### is this the best card to use today? \u2605 Could you please confirm the expiry date on that card that you wili use today. OVERCOME OBJECTION Use L.A.R.M to overcome objection - for M - Use an assumptive or alternate close CLOSE ASK FOR THE MONEY! !",
+              "title": "[WB] Call Flow January 2021",
+              "source": "pdfs/[wb] call flow january 2021.pdf",
+              "filename": "[wb] call flow january 2021.pdf"
+            },
+            "id": "0082ced6-ba95-5e51-a579-e780980a8f3a",
+            "created": "1747464414667",
+            "vector_length": 1024
+          },
+          {
+            "properties": {
+              "text": "[PAGE_BREAK: 13] How to react to a Buying Signai? Clarify and \u201cYes Yes Question\u201d: By making sure that a question is used on your own favor you can use this technique where you put the customer\u2019s concem first by clarifying any questions the customer may have and slightly move to a \u201cYes Yes Question\u201d which is asking a question where any of the answers wili benefit you. How much is the cost of the service? What we need to secure today is ONL Y $49.99 to start up the campaign and your monthly fee wili kick in after 30 days. We can start working on the account after we settle the reactivation fee. Are we going to use the card on file ending in XXXX or wili we use a new one?",
+              "title": "[WB] Identifying Buying Signals",
+              "source": "pdfs/[wb] identifying buying signals.pdf",
+              "filename": "[wb] identifying buying signals.pdf"
+            },
+            "id": "0399c9e3-f4f8-5843-bd9f-cf0f3ac328f7",
+            "created": "1747464397166",
+            "vector_length": 1024
+          }
+        ]
+      },
+      "vector_config": {
+        "type": "none",
+        "dimension": "N/A"
+      },
+      "storage": {},
+      "performance": {
+        "avg_query_time": 0.0013936519622802734,
+        "min_query_time": 0.0013346672058105469,
+        "max_query_time": 0.0015511512756347656,
+        "trials": 5
+      },
+      "property_types": {
+        "text": 29,
+        "int": 7,
+        "boolean": 11,
+        "number": 5,
+        "date": 2
+      },
+      "inverted_index_config": {
+        "bm25": {
+          "b": 0.75,
+          "k1": 1.2
+        },
+        "cleanupIntervalSeconds": 60,
+        "stopwords": {
+          "additions": null,
+          "preset": "en",
+          "removals": null
+        },
+        "usingBlockMaxWAND": true
+      }
+    }
+  ],
+  "performance": {
+    "benchmarks": {
+      "PDFDocuments": {
+        "avg_query_time": 0.0013936519622802734,
+        "min_query_time": 0.0013346672058105469,
+        "max_query_time": 0.0015511512756347656,
+        "trials": 5
+      }
+    }
+  },
+  "storage": {
+    "total_bytes": 0,
+    "total_formatted": "0 B"
+  },
+  "cluster": {
+    "size": 2,
+    "nodes": [
+      {
+        "batchStats": {
+          "queueLength": 0,
+          "ratePerSecond": 0
+        },
+        "gitHash": "80dac5a",
+        "name": "node11",
+        "shards": null,
+        "status": "HEALTHY",
+        "version": "1.30.2"
+      },
+      {
+        "batchStats": {
+          "queueLength": 0,
+          "ratePerSecond": 0
+        },
+        "gitHash": "80dac5a",
+        "name": "node13",
+        "shards": null,
+        "status": "HEALTHY",
+        "version": "1.30.2"
+      }
+    ]
+  }
+}

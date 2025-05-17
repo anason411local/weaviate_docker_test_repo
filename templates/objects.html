@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Objects - {{ class_name }} - Weaviate Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-color: #3f51b5;
+            --secondary-color: #f50057;
+            --bg-light: #f5f5f5;
+            --text-dark: #333;
+            --border-color: #e0e0e0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+        }
+        
+        .navbar {
+            background-color: var(--primary-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            color: white !important;
+        }
+        
+        .card {
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+            margin-bottom: 20px;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        
+        .card-header {
+            font-weight: bold;
+            background-color: rgba(63, 81, 181, 0.1);
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-left-color: var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .badge-class {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .object-card {
+            margin-bottom: 20px;
+        }
+        
+        .object-id {
+            font-size: 0.85rem;
+            font-family: monospace;
+            color: #666;
+        }
+        
+        .object-created {
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        pre {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-size: 0.85rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .json-property {
+            color: #7952b3;
+            font-weight: bold;
+        }
+        
+        .json-string {
+            color: #28a745;
+        }
+        
+        .json-number {
+            color: #fd7e14;
+        }
+        
+        .json-boolean {
+            color: #dc3545;
+        }
+        
+        .json-null {
+            color: #6c757d;
+        }
+        
+        .object-toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .form-row {
+            margin-bottom: 15px;
+        }
+        
+        .add-property-btn {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-hdd-network"></i> Weaviate Dashboard
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">Dashboard</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><span class="badge badge-class">{{ class_name }}</span> Objects</h2>
+            <button class="btn btn-outline-secondary" id="backBtn">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </button>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-list-ul"></i> Object List
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-primary" id="addObjectBtn">
+                        <i class="bi bi-plus-circle"></i> Add Object
+                    </button>
+                    <button class="btn btn-sm btn-primary" id="refreshBtn">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="object-toolbar">
+                    <div class="input-group">
+                        <span class="input-group-text">Page Size</span>
+                        <select class="form-select" id="pageSizeSelect">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50" selected>50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="loading" id="objectsLoading">
+                    <div class="spinner"></div>
+                </div>
+                
+                <div id="objectsContainer" style="display: none;"></div>
+                
+                <div class="pagination-container">
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination" id="pagination"></ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Object Modal -->
+    <div class="modal fade" id="addObjectModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Object to {{ class_name }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addObjectForm">
+                        <div id="propertiesContainer"></div>
+                        <button type="button" class="btn btn-outline-secondary add-property-btn" id="addPropertyBtn">
+                            <i class="bi bi-plus"></i> Add Custom Property
+                        </button>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveObjectBtn">Save Object</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Generic Alert Modal -->
+    <div class="modal fade" id="alertModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="alertTitle">Alert</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="alertMessage"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global state
+        const state = {
+            className: "{{ class_name }}",
+            objects: [],
+            properties: [],
+            pagination: {
+                currentPage: 0,
+                totalPages: 0,
+                pageSize: 50,
+                totalObjects: 0
+            }
+        };
+
+        // DOM elements
+        const elements = {
+            objectsLoading: document.getElementById('objectsLoading'),
+            objectsContainer: document.getElementById('objectsContainer'),
+            pagination: document.getElementById('pagination'),
+            pageSizeSelect: document.getElementById('pageSizeSelect'),
+            backBtn: document.getElementById('backBtn'),
+            refreshBtn: document.getElementById('refreshBtn'),
+            addObjectBtn: document.getElementById('addObjectBtn'),
+            addObjectModal: new bootstrap.Modal(document.getElementById('addObjectModal')),
+            propertiesContainer: document.getElementById('propertiesContainer'),
+            addPropertyBtn: document.getElementById('addPropertyBtn'),
+            saveObjectBtn: document.getElementById('saveObjectBtn'),
+            alertModal: new bootstrap.Modal(document.getElementById('alertModal')),
+            alertTitle: document.getElementById('alertTitle'),
+            alertMessage: document.getElementById('alertMessage')
+        };
+
+        // API request helper
+        async function fetchAPI(endpoint, options = {}) {
+            try {
+                const response = await fetch(`/api${endpoint}`, options);
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'API request failed');
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error(`API Error for ${endpoint}:`, error);
+                throw error;
+            }
+        }
+
+        // Load objects with pagination
+        async function loadObjects(page = 0, pageSize = state.pagination.pageSize) {
+            try {
+                elements.objectsContainer.style.display = 'none';
+                elements.objectsLoading.style.display = 'flex';
+                
+                const offset = page * pageSize;
+                const response = await fetchAPI(`/objects/${state.className}?limit=${pageSize}&offset=${offset}`);
+                
+                state.objects = response.objects;
+                state.properties = response.meta.properties;
+                state.pagination = {
+                    currentPage: page,
+                    pageSize: pageSize,
+                    totalObjects: response.meta.total,
+                    totalPages: Math.ceil(response.meta.total / pageSize)
+                };
+                
+                renderObjects();
+                renderPagination();
+            } catch (error) {
+                showAlert('Error', `Failed to load objects: ${error.message}`);
+            } finally {
+                elements.objectsLoading.style.display = 'none';
+            }
+        }
+
+        // Render objects to the container
+        function renderObjects() {
+            if (!state.objects || state.objects.length === 0) {
+                elements.objectsContainer.innerHTML = '<div class="alert alert-info">No objects found in this class.</div>';
+                elements.objectsContainer.style.display = 'block';
+                return;
+            }
+            
+            const html = state.objects.map((obj, index) => {
+                // Get object ID and creation time
+                const id = obj._additional?.id || 'Unknown';
+                let creationTime = '';
+                if (obj._additional?.creationTimeUnix) {
+                    const date = new Date(obj._additional.creationTimeUnix);
+                    creationTime = date.toLocaleString();
+                }
+                
+                // Remove _additional from displayed properties
+                const properties = { ...obj };
+                delete properties._additional;
+                
+                // Format properties for display
+                const content = formatJSON(properties);
+                
+                return `
+                    <div class="card object-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="object-id">ID: ${id}</span>
+                            </div>
+                            <div>
+                                <span class="object-created">${creationTime ? 'Created: ' + creationTime : ''}</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <pre>${content}</pre>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            elements.objectsContainer.innerHTML = html;
+            elements.objectsContainer.style.display = 'block';
+        }
+
+        // Format JSON for display with syntax highlighting
+        function formatJSON(obj) {
+            const json = JSON.stringify(obj, null, 2);
+            
+            // Simple syntax highlighting
+            return json.replace(/"([^"]+)":/g, '<span class="json-property">"$1"</span>:')
+                      .replace(/"([^"]*)"/g, '<span class="json-string">"$1"</span>')
+                      .replace(/\b(\d+)\b/g, '<span class="json-number">$1</span>')
+                      .replace(/\b(true|false)\b/g, '<span class="json-boolean">$1</span>')
+                      .replace(/\bnull\b/g, '<span class="json-null">null</span>');
+        }
+
+        // Render pagination controls
+        function renderPagination() {
+            const { currentPage, totalPages } = state.pagination;
+            
+            if (totalPages <= 1) {
+                elements.pagination.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            
+            // Previous button
+            html += `
+                <li class="page-item ${currentPage === 0 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" data-page="${currentPage - 1}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+            `;
+            
+            // Page numbers
+            const maxPages = 5;
+            let startPage = Math.max(0, currentPage - Math.floor(maxPages / 2));
+            let endPage = Math.min(totalPages - 1, startPage + maxPages - 1);
+            
+            if (endPage - startPage < maxPages - 1) {
+                startPage = Math.max(0, endPage - maxPages + 1);
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                html += `
+                    <li class="page-item ${i === currentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" data-page="${i}">${i + 1}</a>
+                    </li>
+                `;
+            }
+            
+            // Next button
+            html += `
+                <li class="page-item ${currentPage === totalPages - 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" data-page="${currentPage + 1}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+            `;
+            
+            elements.pagination.innerHTML = html;
+            
+            // Add click event listeners
+            document.querySelectorAll('.page-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const page = parseInt(e.target.getAttribute('data-page') || e.target.parentElement.getAttribute('data-page'));
+                    if (!isNaN(page) && page >= 0 && page < totalPages) {
+                        loadObjects(page);
+                    }
+                });
+            });
+        }
+
+        // Prepare add object form
+        async function prepareAddObjectForm() {
+            try {
+                // Fetch class details to get properties
+                const classDetails = await fetchAPI(`/classes/${state.className}`);
+                
+                if (!classDetails.properties) {
+                    throw new Error('No properties found for this class');
+                }
+                
+                // Clear existing form
+                elements.propertiesContainer.innerHTML = '';
+                
+                // Create form fields for each property
+                classDetails.properties.forEach(property => {
+                    const dataType = property.dataType[0];
+                    let inputType = 'text';
+                    let placeholder = '';
+                    
+                    // Adjust input type based on property data type
+                    switch (dataType) {
+                        case 'int':
+                        case 'number':
+                            inputType = 'number';
+                            break;
+                        case 'boolean':
+                            inputType = 'checkbox';
+                            break;
+                        case 'date':
+                            inputType = 'datetime-local';
+                            break;
+                        case 'text':
+                        case 'string':
+                            inputType = 'text';
+                            break;
+                        default:
+                            inputType = 'text';
+                            placeholder = `Enter ${dataType} value`;
+                    }
+                    
+                    const html = `
+                        <div class="form-row" data-property="${property.name}" data-type="${dataType}">
+                            <label class="form-label">${property.name} <small class="text-muted">(${dataType})</small></label>
+                            ${inputType === 'checkbox' ? 
+                                `<div class="form-check">
+                                    <input type="checkbox" class="form-check-input property-input" id="prop_${property.name}">
+                                </div>` : 
+                                `<input type="${inputType}" class="form-control property-input" id="prop_${property.name}" placeholder="${placeholder}">`
+                            }
+                        </div>
+                    `;
+                    
+                    elements.propertiesContainer.innerHTML += html;
+                });
+                
+                // Show the modal
+                elements.addObjectModal.show();
+            } catch (error) {
+                showAlert('Error', `Failed to prepare form: ${error.message}`);
+            }
+        }
+
+        // Add a custom property field to the form
+        function addCustomPropertyField() {
+            const html = `
+                <div class="form-row custom-property">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control property-name" placeholder="Property name">
+                        </div>
+                        <div class="col-md-4">
+                            <select class="form-select property-type">
+                                <option value="string">String</option>
+                                <option value="int">Integer</option>
+                                <option value="number">Number</option>
+                                <option value="boolean">Boolean</option>
+                                <option value="date">Date</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="text" class="form-control property-value" placeholder="Property value">
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            elements.propertiesContainer.innerHTML += html;
+            
+            // Update input types when property type changes
+            document.querySelectorAll('.property-type').forEach(select => {
+                select.addEventListener('change', (e) => {
+                    const row = e.target.closest('.custom-property');
+                    const valueInput = row.querySelector('.property-value');
+                    
+                    switch (e.target.value) {
+                        case 'int':
+                        case 'number':
+                            valueInput.type = 'number';
+                            break;
+                        case 'boolean':
+                            // Replace text input with checkbox
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.className = 'form-check-input property-value';
+                            
+                            const container = document.createElement('div');
+                            container.className = 'form-check mt-2';
+                            container.appendChild(checkbox);
+                            
+                            row.querySelector('.property-value').replaceWith(container);
+                            break;
+                        case 'date':
+                            valueInput.type = 'datetime-local';
+                            break;
+                        default:
+                            valueInput.type = 'text';
+                    }
+                });
+            });
+        }
+
+        // Save a new object
+        async function saveObject() {
+            try {
+                const properties = {};
+                
+                // Get values from standard property fields
+                document.querySelectorAll('.form-row:not(.custom-property)').forEach(row => {
+                    const name = row.getAttribute('data-property');
+                    const type = row.getAttribute('data-type');
+                    const input = row.querySelector('.property-input');
+                    
+                    if (!name || !input) return;
+                    
+                    // Convert value based on type
+                    let value;
+                    if (type === 'boolean') {
+                        value = input.checked;
+                    } else if (type === 'int') {
+                        value = input.value ? parseInt(input.value) : null;
+                    } else if (type === 'number') {
+                        value = input.value ? parseFloat(input.value) : null;
+                    } else {
+                        value = input.value;
+                    }
+                    
+                    // Only add non-empty values
+                    if (value !== null && value !== '') {
+                        properties[name] = value;
+                    }
+                });
+                
+                // Get values from custom property fields
+                document.querySelectorAll('.custom-property').forEach(row => {
+                    const nameInput = row.querySelector('.property-name');
+                    const typeSelect = row.querySelector('.property-type');
+                    const valueInput = row.querySelector('.property-value');
+                    
+                    if (!nameInput || !typeSelect || !valueInput) return;
+                    
+                    const name = nameInput.value.trim();
+                    const type = typeSelect.value;
+                    
+                    if (!name) return;
+                    
+                    // Convert value based on type
+                    let value;
+                    if (type === 'boolean') {
+                        value = valueInput.checked;
+                    } else if (type === 'int') {
+                        value = valueInput.value ? parseInt(valueInput.value) : null;
+                    } else if (type === 'number') {
+                        value = valueInput.value ? parseFloat(valueInput.value) : null;
+                    } else if (type === 'date') {
+                        value = valueInput.value ? new Date(valueInput.value).toISOString() : null;
+                    } else {
+                        value = valueInput.value;
+                    }
+                    
+                    // Only add non-empty values
+                    if (value !== null && value !== '') {
+                        properties[name] = value;
+                    }
+                });
+                
+                // Send request to API
+                const response = await fetchAPI(`/objects/${state.className}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ properties })
+                });
+                
+                // Success! Close modal and reload objects
+                elements.addObjectModal.hide();
+                showAlert('Success', 'Object added successfully!', 'success');
+                loadObjects(0, state.pagination.pageSize);
+            } catch (error) {
+                showAlert('Error', `Failed to add object: ${error.message}`);
+            }
+        }
+
+        // Show alert modal
+        function showAlert(title, message, type = 'error') {
+            elements.alertTitle.textContent = title;
+            elements.alertMessage.textContent = message;
+            
+            // Set color based on type
+            const modalHeader = document.querySelector('#alertModal .modal-header');
+            modalHeader.className = 'modal-header';
+            
+            if (type === 'error') {
+                modalHeader.classList.add('bg-danger', 'text-white');
+            } else if (type === 'success') {
+                modalHeader.classList.add('bg-success', 'text-white');
+            } else if (type === 'warning') {
+                modalHeader.classList.add('bg-warning');
+            } else {
+                modalHeader.classList.add('bg-info', 'text-white');
+            }
+            
+            elements.alertModal.show();
+        }
+
+        // Initialize page
+        function init() {
+            // Load objects
+            loadObjects();
+            
+            // Event listeners
+            elements.backBtn.addEventListener('click', () => {
+                window.location.href = '/';
+            });
+            
+            elements.refreshBtn.addEventListener('click', () => {
+                loadObjects(state.pagination.currentPage, state.pagination.pageSize);
+            });
+            
+            elements.pageSizeSelect.addEventListener('change', () => {
+                const pageSize = parseInt(elements.pageSizeSelect.value);
+                loadObjects(0, pageSize);
+            });
+            
+            elements.addObjectBtn.addEventListener('click', () => {
+                prepareAddObjectForm();
+            });
+            
+            elements.addPropertyBtn.addEventListener('click', () => {
+                addCustomPropertyField();
+            });
+            
+            elements.saveObjectBtn.addEventListener('click', () => {
+                saveObject();
+            });
+            
+            // Set initial page size select value
+            elements.pageSizeSelect.value = state.pagination.pageSize;
+        }
+
+        // Start when page is loaded
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html> 
