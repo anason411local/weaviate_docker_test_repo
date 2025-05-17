@@ -13,6 +13,7 @@ from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 import fitz  # PyMuPDF for enhanced metadata extraction
 import datetime
 import unicodedata
+import time
 
 # Attempt to import nltk and PIL, and set flags for their availability
 try:
@@ -45,8 +46,10 @@ if NLTK_AVAILABLE:
 load_dotenv()
 
 # --- Configuration for Weaviate ---
-# Directly set for your local self-hosted Weaviate instance
-WEAVIATE_URL = "http://127.0.0.1:8090"
+# Using localhost:8090 for your local self-hosted Weaviate instance
+WEAVIATE_URL = "http://localhost:8090"  # Changed from 127.0.0.1 to localhost
+# For Docker containers, you might need to use 'host.docker.internal' instead of 'localhost'
+# WEAVIATE_URL = "http://host.docker.internal:8090"  # Uncomment if needed
 # WEAVIATE_API_KEY will be loaded from .env.
 # If your local Weaviate does not use an API key, WEAVIATE_API_KEY can be empty or not set in .env.
 WEAVIATE_API_KEY = os.getenv("WEAVIATE_API_KEY")
@@ -176,7 +179,7 @@ def extract_pdf_metadata(pdf_path):
     default_meta = {
         "title": "", "author": "", "subject": "", "keywords": "", "creator": "",
         "producer": "", "creation_date": "", "modification_date": "", "page_count": 0,
-        "file_size": 0, "pdf_version": "", "toc": "", "has_toc": False, "has_links": False,
+        "file_size": 0, "pdf_version": "unknown", "toc": "", "has_toc": False, "has_links": False,
         "has_forms": False, "has_annotations": False, "has_images": False, "image_count": 0,
         "has_tables": False, "table_count": 0, "total_chars": 0, "total_words": 0,
         "languages": "unknown", "is_encrypted": False, "encryption_method": "",
@@ -194,7 +197,7 @@ def extract_pdf_metadata(pdf_path):
             "creator": doc_meta.get("creator", ""), "producer": doc_meta.get("producer", ""),
             "creation_date": doc_meta.get("creationDate", ""), "modification_date": doc_meta.get("modDate", ""),
             "page_count": doc.page_count, "file_size": os.path.getsize(pdf_path) if os.path.exists(pdf_path) else 0,
-            "pdf_version": f"{doc.version[0] if doc.version else 'N/A'}.{doc.version[1] if doc.version and len(doc.version)>1 else 'N/A'}", #Handle potential None for doc.version
+            "pdf_version": "unknown", # Set a default value
             "has_forms": bool(doc.is_form_pdf), "is_encrypted": doc.is_encrypted,
             "encryption_method": str(doc.encryption_method()) if doc.is_encrypted else "", # Ensure it's a string
             "permissions": json.dumps(doc.permissions) if hasattr(doc, 'permissions') else "{}",
@@ -202,6 +205,13 @@ def extract_pdf_metadata(pdf_path):
             "has_embedded_files": len(doc.embfile_names()) > 0,
             "embedded_file_names": json.dumps(doc.embfile_names()),
         })
+        
+        # Handle PDF version - fixed the issue with missing version attribute
+        try:
+            if hasattr(doc, 'version') and doc.version:
+                metadata["pdf_version"] = f"{doc.version[0]}.{doc.version[1]}" if isinstance(doc.version, tuple) and len(doc.version) > 1 else "unknown"
+        except:
+            metadata["pdf_version"] = "unknown"
 
         toc_data = doc.get_toc()
         if toc_data:
@@ -509,19 +519,23 @@ def create_collection_if_not_exists():
     schema_url = f"{WEAVIATE_URL}/v1/schema/{collection_name}"
     
     try:
+        # First check if collection exists
         response = requests.get(schema_url, headers=headers)
         if response.status_code == 200:
-            print(f"✅ Collection '{collection_name}' already exists.")
-            return True
+            print(f"✅ Collection '{collection_name}' already exists. Deleting it to recreate with correct schema...")
+            # Delete existing collection
+            delete_response = requests.delete(schema_url, headers=headers)
+            if delete_response.status_code not in [200, 204, 404]:
+                print(f"❌ Error deleting collection: {delete_response.status_code} - {delete_response.text}")
+                return False
+            print(f"✅ Successfully deleted collection '{collection_name}'.")
     except requests.exceptions.RequestException as e:
         print(f"Error checking collection existence: {e}")
         return False # Cannot proceed if schema check fails due to connection
 
-    print(f"Collection '{collection_name}' does not exist or error checking. Attempting to create...")
+    print(f"Creating collection '{collection_name}' with updated schema...")
     
-    # Simplified schema for brevity, expand as needed matching your previous detailed one
-    # Ensure datatypes match what your extract_pdf_metadata and extract_content_features provide
-    # For example, if a field is boolean, ensure it's "boolean", if number, "number" or "int"
+    # Schema definition with corrected data types
     schema = {
         "class": collection_name,
         "vectorizer": "none", # We provide vectors manually
@@ -530,12 +544,12 @@ def create_collection_if_not_exists():
             {"name": "filename", "dataType": ["text"]}, {"name": "folder", "dataType": ["text"]},
             {"name": "page", "dataType": ["int"]}, {"name": "title", "dataType": ["text"]},
             {"name": "author", "dataType": ["text"]}, {"name": "subject", "dataType": ["text"]},
-            {"name": "keywords", "dataType": ["text"]}, {"name": "creation_date", "dataType": ["text"]}, # Consider date type if querying
+            {"name": "keywords", "dataType": ["text"]}, # Keep as regular text (not array)
+            {"name": "creation_date", "dataType": ["text"]}, # Keep as text, will be formatted properly
+            {"name": "modification_date", "dataType": ["text"]}, # Keep as text, will be formatted
             {"name": "page_count", "dataType": ["int"]}, {"name": "file_size", "dataType": ["int"]},
             {"name": "has_images", "dataType": ["boolean"]}, {"name": "image_count", "dataType": ["int"]},
-            {"name": "languages", "dataType": ["text"]},
-            # Add more properties based on what you extract and need for filtering/searching
-            # Example from content_features (ensure names are Weaviate compatible - no dots, start with lowercase)
+            {"name": "languages", "dataType": ["text"]}, # Keep as regular text (not array)
             {"name": "feature_layout_info_multi_column", "dataType": ["boolean"]},
             {"name": "feature_readability_stats_avg_sentence_length", "dataType": ["number"]},
         ]
@@ -561,20 +575,13 @@ def create_collection_if_not_exists():
          if not any(p["name"] == prop_name for p in schema["properties"]):
             schema["properties"].append({"name": prop_name, "dataType": [prop_type]})
 
-
     try:
         response = requests.post(f"{WEAVIATE_URL}/v1/schema", headers=headers, json=schema)
         if response.status_code == 200:
-            print(f"✅ Created collection '{collection_name}'.")
+            print(f"✅ Created collection '{collection_name}' successfully.")
             return True
         else:
             print(f"❌ Error creating schema: {response.status_code} - {response.text}")
-            try: # Check if it was because it already existed (race condition or different check result)
-                error_detail = response.json()
-                if "already exists" in str(error_detail).lower():
-                    print("Collection seems to already exist despite initial check. Proceeding.")
-                    return True
-            except: pass
             return False
     except requests.exceptions.RequestException as e:
         print(f"Error during schema creation post: {e}")
@@ -583,26 +590,38 @@ def create_collection_if_not_exists():
 
 def create_weaviate_object(doc_properties, vector):
     headers = create_weaviate_headers()
-    # Generate UUID based on content to aid deduplication if re-run, though main script handles this earlier
-    # Using source, page, and start of text for a more stable ID if text chunks slightly change
+    # Generate UUID based on content to aid deduplication if re-run
     unique_str_for_id = f"{doc_properties.get('source', '')}-{doc_properties.get('page', 0)}-{doc_properties.get('text', '')[:50]}"
     object_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, unique_str_for_id))
 
-    # Ensure all property names are valid for Weaviate (e.g. no dots, start with lowercase)
-    # The load_and_split_pdfs function tries to handle this with "feature_..." prefixes
-    # Sanitize property dictionary: Weaviate expects specific data types.
-    # For example, ensure integers are ints, booleans are bools.
-    # The `load_and_split_pdfs` function should ideally prepare types correctly.
-    # Here, we do a final pass for common issues.
+    # Sanitize property dictionary
     sanitized_properties = {}
     for k, v in doc_properties.items():
-        # Example: ensure boolean fields are actually boolean if they are string "true"/"false"
+        # Skip empty values for date fields
+        if k in ['creation_date', 'modification_date'] and (not v or v == ''):
+            continue
+            
+        # Handle boolean values that might be strings
         if isinstance(v, str):
-            if v.lower() == "true": sanitized_properties[k] = True
-            elif v.lower() == "false": sanitized_properties[k] = False
-            else: sanitized_properties[k] = v
+            if v.lower() == "true": 
+                sanitized_properties[k] = True
+            elif v.lower() == "false": 
+                sanitized_properties[k] = False
+            else: 
+                # Make sure languages and keywords are regular strings, not arrays
+                if k in ['languages', 'keywords']:
+                    sanitized_properties[k] = str(v)
+                else:
+                    sanitized_properties[k] = v
         else:
-            sanitized_properties[k] = v
+            # Make sure languages and keywords are strings if they're lists
+            if k in ['languages', 'keywords'] and isinstance(v, list):
+                sanitized_properties[k] = ','.join(str(x) for x in v)
+            else:
+                sanitized_properties[k] = v
+            
+    # Make sure version attribute exists
+    sanitized_properties['pdf_version'] = sanitized_properties.get('pdf_version', 'unknown')
             
     object_data = {
         "id": object_id,
@@ -610,13 +629,17 @@ def create_weaviate_object(doc_properties, vector):
         "properties": sanitized_properties,
         "vector": vector
     }
+    
+    # Print sample object structure for debugging first object only
+    # if object_id == "some-known-id":
+    #    print(f"Sample object structure: {json.dumps(object_data, indent=2)}")
+    
     try:
         response = requests.post(f"{WEAVIATE_URL}/v1/objects", headers=headers, json=object_data)
         if response.status_code in [200, 201]: # 200 for OK, 201 for Created
             return True
         else:
             print(f"❌ Error creating object {object_id}: {response.status_code} - {response.text}")
-            # print(f"Object data sent: {json.dumps(object_data, indent=2)}") # For debugging
             return False
     except requests.exceptions.RequestException as e:
         print(f"Error creating object post: {e}")
@@ -656,19 +679,35 @@ def main():
         print(f"Warning: PDFs directory '{pdfs_directory}' is empty. No files to process.")
         return
 
+    # Check Weaviate connection
+    print("Testing Weaviate connection...")
+    if not check_weaviate_connection():
+        print("❌ Cannot connect to Weaviate. Please check if Weaviate is running and the URL is correct.")
+        print(f"Current URL: {WEAVIATE_URL}")
+        return
+
+    # Create or check collection
     if not create_collection_if_not_exists():
         print("Failed to create or verify Weaviate collection. Aborting.")
         return
 
-    documents_to_process = load_and_split_pdfs(pdfs_directory)
-    if not documents_to_process:
-        print("No document chunks to process after loading and splitting. Exiting.")
+    # Load and process documents
+    try:
+        documents_to_process = load_and_split_pdfs(pdfs_directory)
+        if not documents_to_process:
+            print("No document chunks to process after loading and splitting. Exiting.")
+            return
+    except Exception as e:
+        print(f"Error during document loading and processing: {e}")
         return
 
     print(f"\nEmbedding and importing {len(documents_to_process)} document chunks into Weaviate...")
     
     batch_size = 10 # Adjust based on embedding model performance and Weaviate load
     success_count = 0
+    error_count = 0
+    retry_count = 0
+    max_retries = 3
 
     for i in range(0, len(documents_to_process), batch_size):
         batch_docs_properties = documents_to_process[i : i + batch_size]
@@ -676,27 +715,67 @@ def main():
 
         texts_to_embed = [enhance_text_for_embedding(doc_props["text"], doc_props) for doc_props in batch_docs_properties]
         
-        try:
-            print(f"  Generating embeddings for {len(texts_to_embed)} texts...")
-            embeddings = embedding_model.embed_documents(texts_to_embed)
-            print(f"  Embeddings generated. Importing to Weaviate...")
+        # Retry logic for critical errors
+        for retry in range(max_retries):
+            if retry > 0:
+                print(f"  Retry attempt {retry}/{max_retries-1}...")
+                # Wait a bit before retry
+                time.sleep(2)
+            
+            try:
+                print(f"  Generating embeddings for {len(texts_to_embed)} texts...")
+                embeddings = embedding_model.embed_documents(texts_to_embed)
+                print(f"  Embeddings generated. Importing to Weaviate...")
 
-            for doc_props, vector in zip(batch_docs_properties, embeddings):
-                if create_weaviate_object(doc_props, vector):
-                    success_count += 1
-            print(f"  Batch import attempt finished. Current success: {success_count}")
-
-        except requests.exceptions.RequestException as e:
-            print(f"❌ Connection error during batch processing (embedding or Weaviate import): {e}")
-            print("  Skipping current batch. Check Weaviate connection and logs.")
-            continue # Skip to next batch
-        except Exception as e:
-            print(f"❌ Error processing batch: {e}")
-            # Consider more detailed error logging here if needed
-            print("  Skipping current batch due to error.")
-            continue
+                batch_success = 0
+                for doc_props, vector in zip(batch_docs_properties, embeddings):
+                    if create_weaviate_object(doc_props, vector):
+                        success_count += 1
+                        batch_success += 1
+                    else:
+                        error_count += 1
+                
+                print(f"  Batch import finished. Batch success: {batch_success}/{len(batch_docs_properties)}, Total success: {success_count}/{success_count+error_count}")
+                
+                # If we had any success in this batch, break retry loop
+                if batch_success > 0:
+                    break
+                
+                # If complete failure and we have retries left, we'll retry
+                if batch_success == 0 and retry < max_retries - 1:
+                    retry_count += 1
+                    print("  Complete batch failure, will retry...")
+                    continue
+                    
+            except requests.exceptions.RequestException as e:
+                print(f"❌ Connection error during batch processing: {e}")
+                if retry < max_retries - 1:
+                    retry_count += 1
+                    print("  Will retry after connection error...")
+                    continue
+                else:
+                    print("  Max retries reached, skipping this batch.")
+                    error_count += len(batch_docs_properties)
+            except Exception as e:
+                print(f"❌ Error processing batch: {e}")
+                if retry < max_retries - 1:
+                    retry_count += 1
+                    print("  Will retry after general error...")
+                    continue
+                else:
+                    print("  Max retries reached, skipping this batch.")
+                    error_count += len(batch_docs_properties)
 
     print(f"\n🏁 Completed! Successfully imported {success_count} / {len(documents_to_process)} document chunks.")
+    print(f"   Failed: {error_count}, Retries attempted: {retry_count}")
+    
+    if success_count == 0:
+        print("\n⚠️ No documents were successfully imported. Please check the errors above.")
+        print("   Common issues:")
+        print("   - Schema mismatch between script and Weaviate")
+        print("   - Connection problems to Weaviate")
+        print("   - Data format issues")
+        print("\n   Try running: curl http://localhost:8090/v1/.well-known/ready to verify Weaviate is working.")
 
 if __name__ == "__main__":
     print("--------------------------------------------------------------------------")

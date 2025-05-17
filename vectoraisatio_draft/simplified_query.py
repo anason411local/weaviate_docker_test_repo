@@ -7,20 +7,30 @@ from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 # Load environment variables
 load_dotenv()
 
-# Get Weaviate credentials
-WEAVIATE_URL = os.getenv("WEAVIATE_URL")
+# --- Configuration for Weaviate ---
+# Using localhost:8090 for your local self-hosted Weaviate instance
+WEAVIATE_URL = "http://localhost:8090"  # Changed from environment variable to direct URL
+# For Docker containers, you might need to use 'host.docker.internal' instead of 'localhost'
+# WEAVIATE_URL = "http://host.docker.internal:8090"  # Uncomment if needed
+# WEAVIATE_API_KEY will be loaded from .env.
 WEAVIATE_API_KEY = os.getenv("WEAVIATE_API_KEY")
 
-# Check if credentials are set
-if not WEAVIATE_URL or not WEAVIATE_API_KEY:
-    raise ValueError("WEAVIATE_URL and WEAVIATE_API_KEY must be set in .env file")
+print(f"Attempting to connect to Weaviate at: {WEAVIATE_URL}")
+
+# Check if API key is set (only if needed)
+if not WEAVIATE_API_KEY:
+    print("Warning: WEAVIATE_API_KEY is not set in the .env file. Proceeding without API key.")
+    print("If your self-hosted Weaviate instance requires an API key, requests will likely fail.")
+else:
+    print("WEAVIATE_API_KEY found in .env file.")
 
 # Ensure URL has proper scheme
-if WEAVIATE_URL and not WEAVIATE_URL.startswith(("http://", "https://")):
-    WEAVIATE_URL = f"https://{WEAVIATE_URL}"
-    print(f"Added https:// prefix to Weaviate URL: {WEAVIATE_URL}")
+if not WEAVIATE_URL.startswith(("http://", "https://")):
+    print(f"Warning: WEAVIATE_URL '{WEAVIATE_URL}' does not have a scheme. Defaulting to http://.")
+    WEAVIATE_URL = f"http://{WEAVIATE_URL}"
+# --- End of Weaviate Configuration ---
 
-# Initialize the embedding model (same as in vectoraiser script)
+# Initialize the embedding model (same as in vectorizer script)
 model_name = "BAAI/bge-m3"
 model_kwargs = {'device': 'cpu'}
 encode_kwargs = {'normalize_embeddings': True}
@@ -31,12 +41,16 @@ embedding_model = HuggingFaceBgeEmbeddings(
     cache_folder=None
 )
 
+def create_weaviate_headers():
+    """Create headers for Weaviate API requests."""
+    headers = {"Content-Type": "application/json"}
+    if WEAVIATE_API_KEY:
+        headers["Authorization"] = f"Bearer {WEAVIATE_API_KEY}"
+    return headers
+
 def check_collection_exists():
     """Check if the PDFDocuments collection exists."""
-    headers = {
-        "Authorization": f"Bearer {WEAVIATE_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    headers = create_weaviate_headers()
     
     try:
         response = requests.get(f"{WEAVIATE_URL}/v1/schema", headers=headers)
@@ -82,10 +96,7 @@ def vector_search(query_text, limit=5):
     """ % (json.dumps(query_vector), limit)
     
     # Execute query
-    headers = {
-        "Authorization": f"Bearer {WEAVIATE_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    headers = create_weaviate_headers()
     
     try:
         response = requests.post(
@@ -132,10 +143,7 @@ def keyword_search(query_text, limit=5):
     """ % (query_text.replace('"', '\\"'), limit)
     
     # Execute query
-    headers = {
-        "Authorization": f"Bearer {WEAVIATE_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    headers = create_weaviate_headers()
     
     try:
         response = requests.post(
