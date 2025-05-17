@@ -12,17 +12,19 @@ from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.cm as cm
 from matplotlib.colors import LinearSegmentedColormap
 
-# Set plot style
+# Set plot style with modern aesthetics
 plt.style.use('ggplot')
 sns.set(style="whitegrid")
 
-# Define custom color palette for consistent visuals
-MAIN_COLOR = "#1f77b4"  # Main blue color
-ACCENT_COLOR = "#ff7f0e"  # Orange accent
-GREEN_COLOR = "#2ca02c"  # Green
-RED_COLOR = "#d62728"  # Red
+# Define enhanced color palette for more beautiful visuals
+MAIN_COLOR = "#4287f5"  # Vibrant blue
+ACCENT_COLOR = "#f54242"  # Bold red
+GREEN_COLOR = "#42f54b"  # Vibrant green
+PURPLE_COLOR = "#a142f5"  # Rich purple
 CUSTOM_CMAP = LinearSegmentedColormap.from_list("custom_cmap", 
                                                ["#f0f9e8", "#7bccc4", "#43a2ca", "#0868ac"])
+GRADIENT_CMAP = LinearSegmentedColormap.from_list("gradient_cmap",
+                                                ["#ff9a9e", "#fad0c4", "#a1c4fd", "#c2e9fb"])
 
 # Load environment variables
 load_dotenv()
@@ -116,7 +118,41 @@ def compute_cosine_similarities(documents):
         print("No documents with vectors found.")
         return []
     
-    vectors = [doc["_additional"]["vector"] for doc in documents]
+    # Extract vectors and ensure they all have the same dimension
+    vectors = []
+    valid_documents = []
+    
+    # First pass: determine the correct dimension
+    dimensions = []
+    for doc in documents:
+        vec = doc["_additional"]["vector"]
+        if isinstance(vec, list):
+            dimensions.append(len(vec))
+    
+    if not dimensions:
+        print("No valid vector dimensions found.")
+        return []
+    
+    # Find the most common dimension
+    from collections import Counter
+    dimension_counts = Counter(dimensions)
+    correct_dim = dimension_counts.most_common(1)[0][0]
+    print(f"Using vector dimension: {correct_dim}")
+    
+    # Second pass: only keep vectors with the correct dimension
+    for doc in documents:
+        vec = doc["_additional"]["vector"]
+        if isinstance(vec, list) and len(vec) == correct_dim:
+            vectors.append(vec)
+            valid_documents.append(doc)
+        else:
+            print(f"Skipping vector with incorrect dimension: {len(vec) if isinstance(vec, list) else 'not a list'}")
+    
+    print(f"Using {len(vectors)} out of {len(documents)} documents with valid vectors")
+    
+    if not vectors:
+        print("No valid vectors found.")
+        return []
     
     # Convert to numpy arrays
     vectors = np.array(vectors)
@@ -134,60 +170,8 @@ def compute_cosine_similarities(documents):
     
     return np.array(similarities)
 
-def create_heatmap(documents, max_docs=30):
-    """Create a heatmap of cosine similarities between document vectors."""
-    if not documents:
-        print("No documents with vectors found.")
-        return
-    
-    # Limit to max_docs for readability
-    if len(documents) > max_docs:
-        documents = documents[:max_docs]
-        print(f"Limiting heatmap to first {max_docs} documents for readability")
-    
-    vectors = [doc["_additional"]["vector"] for doc in documents]
-    filenames = [f"{doc['filename']}(p{doc['page']})" for doc in documents]
-    
-    # Create short labels
-    short_labels = []
-    for fn in filenames:
-        # Extract just the file prefix and page number
-        prefix = fn.split('_')[0] if '_' in fn else fn.split('.')[0]
-        if '(' in prefix:
-            prefix = prefix.split('(')[0]
-        page = fn.split('p')[-1].split(')')[0] if 'p' in fn else ''
-        short_label = f"{prefix[:10]}..p{page}" if len(prefix) > 10 else f"{prefix}..p{page}"
-        short_labels.append(short_label)
-    
-    # Convert to numpy arrays
-    vectors = np.array(vectors)
-    
-    # Compute similarity matrix
-    similarity_matrix = cosine_similarity(vectors)
-    
-    # Create figure for heatmap
-    plt.figure(figsize=(14, 12))
-    
-    # Create heatmap with custom colormap
-    heatmap = sns.heatmap(
-        similarity_matrix, 
-        annot=False,
-        cmap=CUSTOM_CMAP,
-        xticklabels=short_labels,
-        yticklabels=short_labels,
-        vmin=0, vmax=1,
-        cbar_kws={'label': 'Cosine Similarity'}
-    )
-    
-    # Set title and labels
-    plt.title('Cosine Similarity Heatmap', fontsize=16, fontweight='bold', pad=20)
-    plt.tight_layout()
-    plt.savefig('cosine_similarity_heatmap.png', dpi=300, bbox_inches='tight')
-    
-    return similarity_matrix
-
-def compute_similarity_distribution(similarities, num_bins=10):
-    """Compute percentage-wise distribution of cosine similarities."""
+def compute_similarity_distribution(similarities, num_bins=12):
+    """Compute percentage-wise distribution of cosine similarities with enhanced visuals."""
     total_count = len(similarities)
     if total_count == 0:
         print("No similarities to analyze.")
@@ -221,20 +205,24 @@ def compute_similarity_distribution(similarities, num_bins=10):
         percentage = percentages[i]
         print(f"{bin_labels[i]:<20} | {count:<7} | {percentage:>9.2f}%")
     
-    # Create figure for bar chart
-    plt.figure(figsize=(14, 8))
+    # Create gorgeous figure for bar chart with modern aesthetic
+    plt.figure(figsize=(16, 9))
     
-    # Create color gradient for bars based on similarity values
-    colors = cm.viridis(np.linspace(0.1, 0.9, len(bin_labels)))
+    # Create beautiful gradient color map for bars
+    colors = GRADIENT_CMAP(np.linspace(0, 1, len(bin_labels)))
     
-    # Plot the distribution with better styling
-    bars = plt.bar(bin_labels, percentages, color=colors, width=0.7, edgecolor='black', linewidth=0.5)
+    # Plot the distribution with enhanced styling
+    bars = plt.bar(bin_labels, percentages, color=colors, width=0.8, 
+                  edgecolor='white', linewidth=1.5, alpha=0.9)
     
-    # Add a trend line
+    # Add a smooth trend curve
     x = np.arange(len(bin_labels))
-    z = np.polyfit(x, percentages, 2)
+    z = np.polyfit(x, percentages, 3)  # Use cubic polynomial for smoother curve
     p = np.poly1d(z)
-    plt.plot(x, p(x), '--', color=RED_COLOR, linewidth=2, alpha=0.7)
+    
+    # Generate more points for a smoother curve
+    x_smooth = np.linspace(0, len(bin_labels)-1, 100)
+    plt.plot(x_smooth, p(x_smooth), '-', color=PURPLE_COLOR, linewidth=3, alpha=0.8)
     
     # Add percentage labels on top of bars
     for bar in bars:
@@ -248,16 +236,16 @@ def compute_similarity_distribution(similarities, num_bins=10):
                 va='bottom', 
                 rotation=0,
                 fontweight='bold',
-                fontsize=9,
+                fontsize=11,
                 color='black'
             )
     
     # Add styling
-    plt.title('Percentage-wise Cosine Similarity Distribution', fontsize=16, fontweight='bold', pad=20)
-    plt.xlabel('Cosine Similarity Range', fontsize=12, labelpad=10)
-    plt.ylabel('Percentage of Document Pairs', fontsize=12, labelpad=10)
-    plt.xticks(rotation=45, ha='right', fontsize=10)
-    plt.yticks(fontsize=10)
+    plt.title('Cosine Similarity Distribution', fontsize=22, fontweight='bold', pad=20)
+    plt.xlabel('Similarity Range', fontsize=16, labelpad=15)
+    plt.ylabel('Percentage of Document Pairs', fontsize=16, labelpad=15)
+    plt.xticks(rotation=45, ha='right', fontsize=12)
+    plt.yticks(fontsize=12)
     
     # Add grid for better readability
     plt.grid(axis='y', alpha=0.3, linestyle='--')
@@ -267,23 +255,30 @@ def compute_similarity_distribution(similarities, num_bins=10):
         f"Total pairs: {total_count}\n"
         f"Mean: {np.mean(similarities):.4f}\n"
         f"Median: {np.median(similarities):.4f}\n"
+        f"Min: {np.min(similarities):.4f}\n"
+        f"Max: {np.max(similarities):.4f}\n"
         f"Std Dev: {np.std(similarities):.4f}"
     )
     plt.annotate(
         stats_text, 
         xy=(0.02, 0.96), 
         xycoords='axes fraction',
-        bbox=dict(boxstyle="round,pad=0.5", facecolor='white', alpha=0.8),
-        fontsize=10
+        bbox=dict(boxstyle="round,pad=0.8", facecolor='white', alpha=0.9, edgecolor='lightgray'),
+        fontsize=12,
+        fontweight='bold'
     )
     
+    # Add a beautiful background gradient
+    ax = plt.gca()
+    ax.set_facecolor('#f8f9fa')
+    
     plt.tight_layout()
-    plt.savefig('cosine_similarity_percentage_distribution.png', dpi=300, bbox_inches='tight')
+    plt.savefig('cosine_similarity_distribution.png', dpi=300, bbox_inches='tight')
     
     return distribution
 
 def analyze_similarities(similarities):
-    """Analyze the distribution of cosine similarities."""
+    """Analyze the distribution of cosine similarities with enhanced visuals."""
     if len(similarities) == 0:
         print("No similarities to analyze.")
         return
@@ -313,118 +308,71 @@ def analyze_similarities(similarities):
     print("\n===== DETAILED STATISTICS =====")
     print(similarities_series.describe(percentiles=[.1, .25, .5, .75, .9, .95, .99]))
     
-    # Create figure with enhanced styling
-    plt.figure(figsize=(16, 10))
+    # Create a single enhanced histogram with gradient colors - MORE BEAUTIFUL!
+    plt.figure(figsize=(16, 9))
     
-    # Subplot 1: Enhanced Histogram
-    plt.subplot(2, 2, 1)
-    n, bins, patches = plt.hist(similarities, bins=50, alpha=0.7, color=MAIN_COLOR, edgecolor='black', linewidth=0.5)
+    # Create an enhanced histogram with gradient fill
+    n, bins, patches = plt.hist(similarities, bins=50, alpha=0.8, edgecolor='white', linewidth=0.8)
     
-    # Add color gradient to histogram
+    # Add beautiful color gradient to histogram
     bin_centers = 0.5 * (bins[:-1] + bins[1:])
-    cm = plt.cm.get_cmap('viridis')
     col = bin_centers - min(bin_centers)
     col /= max(col)
+    
+    # Use custom gradient colormap for a more appealing visual
+    cm = plt.cm.get_cmap(GRADIENT_CMAP)
     for c, p in zip(col, patches):
         plt.setp(p, 'facecolor', cm(c))
     
-    # Add mean and median lines
-    plt.axvline(stats["mean"], color=RED_COLOR, linestyle='--', linewidth=2, 
-                label=f'Mean: {stats["mean"]:.4f}')
-    plt.axvline(stats["median"], color=GREEN_COLOR, linestyle='--', linewidth=2, 
-                label=f'Median: {stats["median"]:.4f}')
+    # Add mean and median lines with enhanced styling
+    plt.axvline(stats["mean"], color=ACCENT_COLOR, linestyle='-', linewidth=3, 
+                label=f'Mean: {stats["mean"]:.4f}', alpha=0.8)
+    plt.axvline(stats["median"], color=GREEN_COLOR, linestyle='-', linewidth=3, 
+                label=f'Median: {stats["median"]:.4f}', alpha=0.8)
     
-    # Add key percentiles
-    plt.axvline(stats["25%"], color='purple', linestyle=':', linewidth=1.5, 
-                label=f'25th %: {stats["25%"]:.4f}')
-    plt.axvline(stats["75%"], color='purple', linestyle=':', linewidth=1.5, 
-                label=f'75th %: {stats["75%"]:.4f}')
+    # Add key percentiles with more attractive styling
+    plt.axvline(stats["25%"], color=PURPLE_COLOR, linestyle='--', linewidth=2, 
+                label=f'25th %: {stats["25%"]:.4f}', alpha=0.7)
+    plt.axvline(stats["75%"], color=PURPLE_COLOR, linestyle='--', linewidth=2, 
+                label=f'75th %: {stats["75%"]:.4f}', alpha=0.7)
     
-    plt.title('Cosine Similarity Distribution', fontsize=14, fontweight='bold')
-    plt.xlabel('Cosine Similarity', fontsize=12)
-    plt.ylabel('Frequency', fontsize=12)
-    plt.legend(fontsize=10)
-    plt.grid(alpha=0.3)
+    # Add beautiful title and labels
+    plt.title('Cosine Similarity Distribution', fontsize=22, fontweight='bold', pad=20)
+    plt.xlabel('Cosine Similarity', fontsize=16, labelpad=15)
+    plt.ylabel('Frequency', fontsize=16, labelpad=15)
     
-    # Subplot 2: Enhanced Box plot
-    plt.subplot(2, 2, 2)
-    box = sns.boxplot(x=similarities, width=0.5, color=MAIN_COLOR)
+    # Enhanced legend with shadow and rounded corners
+    legend = plt.legend(fontsize=12, framealpha=0.9, facecolor='white', 
+                      edgecolor='lightgray', loc='upper right')
+    legend.get_frame().set_boxstyle('round,pad=0.6')
     
-    # Add a swarm plot on top for distribution visualization
-    sns.swarmplot(x=similarities, size=2, color='black', alpha=0.5)
+    # Add subtle grid for better readability
+    plt.grid(alpha=0.3, linestyle='--')
     
-    # Add annotations for key statistics
-    plt.axvline(stats["mean"], color=RED_COLOR, linestyle='--', linewidth=1.5)
-    plt.text(stats["mean"], 0.02, f'Mean: {stats["mean"]:.4f}', 
-             ha='center', va='bottom', fontsize=10, color=RED_COLOR)
+    # Add annotation with statistics in an attractive box
+    stats_text = (
+        f"Total pairs: {stats['count']}\n"
+        f"Mean: {stats['mean']:.4f}\n"
+        f"Median: {stats['median']:.4f}\n"
+        f"Min: {stats['min']:.4f}\n"
+        f"Max: {stats['max']:.4f}\n"
+        f"Std Dev: {stats['std']:.4f}"
+    )
+    plt.annotate(
+        stats_text,
+        xy=(0.02, 0.96),
+        xycoords='axes fraction',
+        bbox=dict(boxstyle="round,pad=0.8", facecolor='white', alpha=0.9, edgecolor='lightgray'),
+        fontsize=12,
+        fontweight='bold'
+    )
     
-    # Annotate quartiles
-    for perc, label, color in [
-        ("25%", "Q1", "purple"), 
-        ("median", "Median", GREEN_COLOR), 
-        ("75%", "Q3", "purple")
-    ]:
-        plt.text(stats[perc], 0.05, f'{label}: {stats[perc]:.4f}', 
-                ha='center', va='bottom', fontsize=10, color=color, 
-                bbox=dict(facecolor='white', alpha=0.7, boxstyle='round,pad=0.2'))
-    
-    plt.title('Cosine Similarity Boxplot', fontsize=14, fontweight='bold')
-    plt.xlabel('Cosine Similarity', fontsize=12)
-    plt.grid(axis='x', alpha=0.3)
-    
-    # Subplot 3: KDE Plot with rugplot
-    plt.subplot(2, 2, 3)
-    sns.kdeplot(similarities, shade=True, color=MAIN_COLOR, alpha=0.7)
-    sns.rugplot(similarities, color=RED_COLOR, alpha=0.5)
-    
-    # Add percentile markers
-    for perc, label, color in [
-        ("25%", "25th", "purple"), 
-        ("median", "50th", GREEN_COLOR), 
-        ("75%", "75th", "purple"),
-        ("90%", "90th", ACCENT_COLOR),
-        ("95%", "95th", "brown")
-    ]:
-        plt.axvline(stats[perc], color=color, linestyle='--', linewidth=1, alpha=0.7)
-        plt.text(stats[perc], 0.2, f'{label}', ha='center', va='bottom', 
-                 fontsize=9, color=color, rotation=90)
-    
-    plt.title('Kernel Density Estimate with Percentiles', fontsize=14, fontweight='bold')
-    plt.xlabel('Cosine Similarity', fontsize=12)
-    plt.ylabel('Density', fontsize=12)
-    plt.grid(alpha=0.3)
-    
-    # Subplot 4: ECDF (Empirical Cumulative Distribution Function)
-    plt.subplot(2, 2, 4)
-    
-    # Sort data for ECDF
-    x = np.sort(similarities)
-    y = np.arange(1, len(x) + 1) / len(x)
-    
-    # Plot ECDF
-    plt.plot(x, y, marker='.', linestyle='none', alpha=0.3, color=MAIN_COLOR)
-    plt.plot(x, y, linestyle='-', linewidth=2, color=ACCENT_COLOR, alpha=0.7)
-    
-    # Add markers for percentiles
-    key_percentiles = [25, 50, 75, 90, 95]
-    for p in key_percentiles:
-        perc_val = np.percentile(similarities, p)
-        plt.plot([perc_val, perc_val], [0, p/100], 'k--', linewidth=1, alpha=0.5)
-        plt.plot([min(similarities), perc_val], [p/100, p/100], 'k--', linewidth=1, alpha=0.5)
-        plt.scatter([perc_val], [p/100], color='red', s=50, zorder=5)
-        plt.annotate(f'{p}%: {perc_val:.4f}', 
-                    xy=(perc_val, p/100), 
-                    xytext=(5, 0), 
-                    textcoords='offset points', 
-                    fontsize=9)
-    
-    plt.title('Cumulative Distribution Function', fontsize=14, fontweight='bold')
-    plt.xlabel('Cosine Similarity', fontsize=12)
-    plt.ylabel('Cumulative Probability', fontsize=12)
-    plt.grid(alpha=0.3)
+    # Set beautiful background
+    ax = plt.gca()
+    ax.set_facecolor('#f8f9fa')
     
     plt.tight_layout()
-    plt.savefig('cosine_similarity_distribution.png', dpi=300, bbox_inches='tight')
+    plt.savefig('histogram_distribution.png', dpi=300, bbox_inches='tight')
     
     # Also compute the percentage distribution
     compute_similarity_distribution(similarities)
@@ -436,10 +384,6 @@ def main():
     documents = fetch_all_vectors()
     
     if documents:
-        # Create heatmap visualization
-        print("Creating cosine similarity heatmap...")
-        create_heatmap(documents)
-        
         print(f"Computing cosine similarities between {len(documents)} documents...")
         similarities = compute_cosine_similarities(documents)
         
@@ -447,9 +391,8 @@ def main():
         analyze_similarities(similarities)
         
         print("\nAnalysis complete. Results saved to:")
-        print("1. 'cosine_similarity_distribution.png'")
-        print("2. 'cosine_similarity_percentage_distribution.png'")
-        print("3. 'cosine_similarity_heatmap.png'")
+        print("1. 'histogram_distribution.png'")
+        print("2. 'cosine_similarity_distribution.png'")
     else:
         print("No documents found. Please run simplified_vectorizer.py first to populate the database.")
 
