@@ -970,6 +970,7 @@ function showUpdateClassModal(className) {
     state.classToUpdate = className;
     elements.updateClassName.value = className;
     elements.updateClassError.style.display = 'none';
+    elements.updateClassSuccess.style.display = 'none';
     elements.updatePropContainer.innerHTML = ''; // Clear existing property fields
     
     // Fetch the current class configuration
@@ -1110,8 +1111,20 @@ function showUpdateClassModal(className) {
             elements.updatePropContainer.appendChild(newPropsDiv);
             
             // Add handler for "Add Another Property" button
-            document.getElementById('updateAddPropertyBtn').addEventListener('click', addPropertyField);
-
+            const addPropertyBtn = document.getElementById('updateAddPropertyBtn');
+            if (addPropertyBtn) {
+                // Remove any existing event listeners
+                addPropertyBtn.replaceWith(addPropertyBtn.cloneNode(true));
+                
+                // Add fresh event listener
+                document.getElementById('updateAddPropertyBtn').addEventListener('click', function() {
+                    console.log('Add property button clicked');
+                    addPropertyField();
+                });
+            } else {
+                console.error('Could not find Add Another Property button');
+            }
+            
             // Add an inverted index config section
             const invertedIndexDiv = document.createElement('div');
             invertedIndexDiv.className = 'mb-4';
@@ -1248,15 +1261,21 @@ function addPropertyField() {
     container.appendChild(newField);
     
     // Add event listener for the remove button
-    newField.querySelector('.remove-property-btn').addEventListener('click', function() {
-        container.removeChild(newField);
-    });
+    const removeBtn = newField.querySelector('.remove-property-btn');
+    if (removeBtn) {
+        removeBtn.addEventListener('click', function() {
+            container.removeChild(newField);
+        });
+    }
+    
+    console.log('Added new property field');
 }
 
 // Function to update a class with new configuration
 function updateClass() {
     const className = state.classToUpdate;
     elements.updateClassError.style.display = 'none';
+    elements.updateClassSuccess.style.display = 'none';
     elements.updateClassSubmitBtn.disabled = true;
     elements.updateClassSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
     
@@ -1275,20 +1294,13 @@ function updateClass() {
     document.querySelectorAll('.property-input').forEach(propInput => {
         const name = propInput.querySelector('.property-name').value.trim();
         if (name) {
-            let dataType = propInput.querySelector('.property-datatype').value;
-            
-            // Format data type as array for Weaviate API
-            if (dataType.endsWith('[]')) {
-                // Convert "text[]" to ["text[]"]
-                dataType = [dataType];
-            } else {
-                // Convert "text" to ["text"]
-                dataType = [dataType];
-            }
+            // Get the selected data type
+            const dataType = propInput.querySelector('.property-datatype').value;
             
             const property = {
                 name: name,
-                dataType: dataType,
+                // Important: Weaviate expects dataType to be an array of strings
+                dataType: [dataType],
                 indexInverted: propInput.querySelector('.property-index').checked
             };
             
@@ -1303,6 +1315,7 @@ function updateClass() {
             }
             
             newProperties.push(property);
+            console.log('Adding property:', property);
         }
     });
     
@@ -1325,45 +1338,92 @@ function updateClass() {
     // Add inverted index config to the main config
     config.inverted_index_config = invertedIndexConfig;
     
+    console.log('Updating class with config:', config);
+    
     // Update the class with the new configuration
     fetchAPI(`/classes/${className}/config`, {
         method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
         body: JSON.stringify(config)
     })
         .then(response => {
-            // Re-enable form and show success
+            console.log('Update response:', response);
+            
+            // Re-enable form and show appropriate messages
             elements.updateClassSubmitBtn.disabled = false;
             elements.updateClassSubmitBtn.innerHTML = 'Update Collection';
             
+            // Process the response
             if (response.status === 'success') {
+                // Show success message
                 elements.updateClassSuccess.innerText = 'Collection updated successfully!';
                 elements.updateClassSuccess.style.display = 'block';
                 
-                // Hide success message after a delay
+                // Process property results if any
+                if (response.property_updates) {
+                    const successful = response.property_updates.filter(p => p.status === 'success').length;
+                    const failed = response.property_updates.filter(p => p.status === 'error').length;
+                    
+                    if (successful > 0) {
+                        elements.updateClassSuccess.innerText += ` Added ${successful} new properties.`;
+                    }
+                    
+                    if (failed > 0) {
+                        elements.updateClassError.innerText = `Failed to add ${failed} properties.`;
+                        
+                        // Show detailed error messages for each failed property
+                        const failedDetails = response.property_updates
+                            .filter(p => p.status === 'error')
+                            .map(p => `Property "${p.name}": ${p.message || 'Unknown error'}`)
+                            .join('. ');
+                            
+                        if (failedDetails) {
+                            elements.updateClassError.innerText += ` Details: ${failedDetails}`;
+                        }
+                        
+                        elements.updateClassError.style.display = 'block';
+                    }
+                }
+                
+                // Hide modal after successful update
                 setTimeout(() => {
                     elements.updateClassModal.hide();
-                    elements.updateClassSuccess.style.display = 'none';
-                    loadClasses(); // Refresh the class list
-                }, 1500);
+                    
+                    // Refresh the classes list
+                    loadClasses();
+                    
+                    // Then refresh the class detail view if we're currently on it
+                    if (state.currentView === 'classDetail' && state.currentClass === className) {
+                        loadClassDetail(className);
+                    }
+                }, 1000);
             } else {
-                // Handle partial success/failure
-                let message = 'Update completed with some issues:';
+                // Show error message for unsuccessful update
+                let errorMessage = 'Update failed. ';
                 
-                if (response.config_update === 'error') {
-                    message += '\n- Error updating collection configuration';
-                    if (response.config_message) {
-                        message += ': ' + response.config_message;
+                if (response.message) {
+                    errorMessage += response.message;
+                }
+                
+                if (response.config_update === 'error' && response.config_message) {
+                    errorMessage += ' ' + response.config_message;
+                }
+                
+                // Format property errors if any
+                if (response.property_updates && response.property_updates.some(p => p.status === 'error')) {
+                    const propertyErrors = response.property_updates
+                        .filter(p => p.status === 'error')
+                        .map(p => `Property "${p.name}": ${p.message || 'Unknown error'}`)
+                        .join('. ');
+                        
+                    if (propertyErrors) {
+                        errorMessage += ' Property errors: ' + propertyErrors;
                     }
                 }
                 
-                if (response.property_updates) {
-                    const failedProps = response.property_updates.filter(p => p.status === 'error');
-                    if (failedProps.length > 0) {
-                        message += '\n- Failed to add ' + failedProps.length + ' properties';
-                    }
-                }
-                
-                elements.updateClassError.innerText = message;
+                elements.updateClassError.innerText = errorMessage;
                 elements.updateClassError.style.display = 'block';
             }
         })
@@ -1371,7 +1431,24 @@ function updateClass() {
             console.error('Error updating class:', error);
             elements.updateClassSubmitBtn.disabled = false;
             elements.updateClassSubmitBtn.innerHTML = 'Update Collection';
-            elements.updateClassError.innerText = 'Error updating collection: ' + error.message;
+            
+            // Create a more readable error message
+            let errorMessage = 'Error updating collection: ';
+            
+            if (error.message) {
+                errorMessage += error.message;
+            } else if (typeof error === 'object') {
+                try {
+                    // Try to stringify the error object in a readable way
+                    errorMessage += JSON.stringify(error, null, 2);
+                } catch (e) {
+                    errorMessage += 'Unknown error occurred';
+                }
+            } else {
+                errorMessage += String(error);
+            }
+            
+            elements.updateClassError.innerText = errorMessage;
             elements.updateClassError.style.display = 'block';
         });
 }
@@ -1463,8 +1540,13 @@ function initDashboard() {
         });
     }
     
-    // Update class submit button
-    elements.updateClassSubmitBtn.addEventListener('click', updateClass);
+    // Update class submit button - properly set up the event listener
+    if (elements.updateClassSubmitBtn) {
+        elements.updateClassSubmitBtn.addEventListener('click', updateClass);
+        console.log('Added event listener to update class button');
+    } else {
+        console.error('Update class submit button not found');
+    }
     
     // Initial view
     showView('dashboard');

@@ -593,7 +593,7 @@
         </div>
     </div>
 
-    <!-- Update Class Modal -->
+    <!-- Update Class Modal - Fix the property inputs -->
     <div class="modal fade" id="updateClassModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -603,85 +603,71 @@
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-info mb-4">
-                        <i class="bi bi-info-circle"></i> Note: Weaviate only supports updating certain configuration aspects of existing collections. You can update vectorizer settings and index configurations, but you cannot change or remove existing properties. You can, however, add new properties.
+                        <i class="bi bi-info-circle"></i> Note: Weaviate only supports updating certain configuration aspects of existing collections. You can update vectorizer settings and index configurations, but you cannot change or remove existing properties. You can add new properties.
                     </div>
-                    
-                    <div class="alert alert-danger mb-3" id="updateClassError" style="display: none;"></div>
-                    <div class="alert alert-success mb-3" id="updateClassSuccess" style="display: none;"></div>
-                    
-                    <form>
+                    <form id="updateClassForm">
                         <div class="mb-3">
                             <label for="updateClassName" class="form-label">Collection Name</label>
-                            <input type="text" class="form-control" id="updateClassName" readonly>
+                            <input type="text" class="form-control" id="updateClassName" disabled>
                         </div>
                         
-                        <h5 class="mb-3">Vector Configuration</h5>
+                        <h5>Vector Configuration</h5>
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label for="updateVectorizer" class="form-label">Vectorizer</label>
-                                <select class="form-select" id="updateVectorizer">
-                                    <option value="none">None (Custom Vectors)</option>
+                                <select class="form-control" id="updateVectorizer">
+                                    <option value="none">None (Bring your own vectors)</option>
+                                    <option value="text2vec-contextionary">text2vec-contextionary</option>
                                     <option value="text2vec-transformers">text2vec-transformers</option>
                                     <option value="text2vec-openai">text2vec-openai</option>
-                                    <option value="text2vec-huggingface">text2vec-huggingface</option>
                                     <option value="text2vec-cohere">text2vec-cohere</option>
-                                    <option value="text2vec-palm">text2vec-palm</option>
-                                    <option value="text2vec-gpt4all">text2vec-gpt4all</option>
-                                    <option value="img2vec-neural">img2vec-neural</option>
-                                    <option value="multi2vec-clip">multi2vec-clip</option>
-                                    <option value="multi2vec-bind">multi2vec-bind</option>
+                                    <option value="text2vec-huggingface">text2vec-huggingface</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
                                 <label for="updateVectorDimension" class="form-label">Vector Dimension</label>
-                                <input type="number" class="form-control" id="updateVectorDimension" min="2" placeholder="e.g., 768, 1536">
+                                <input type="number" class="form-control" id="updateVectorDimension" min="2" max="4096">
                             </div>
                         </div>
                         
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="updateVectorizeClassName">
+                            <label class="form-check-label" for="updateVectorizeClassName">
+                                Vectorize Collection Name
+                            </label>
+                        </div>
+                        
+                        <h5>Vector Index Configuration</h5>
                         <div class="row mb-3">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label for="updateDistanceMetric" class="form-label">Distance Metric</label>
-                                <select class="form-select" id="updateDistanceMetric">
-                                    <option value="cosine">Cosine</option>
+                                <select class="form-control" id="updateDistanceMetric">
+                                    <option value="cosine">Cosine (similarity)</option>
                                     <option value="dot">Dot Product</option>
-                                    <option value="l2-squared">L2 Squared (Euclidean)</option>
-                                    <option value="manhattan">Manhattan</option>
-                                    <option value="hamming">Hamming</option>
+                                    <option value="l2-squared">L2 Squared (distance)</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 align-self-end">
-                                <div class="form-check mt-2">
-                                    <input class="form-check-input" type="checkbox" value="" id="updateVectorizeClassName">
-                                    <label class="form-check-label" for="updateVectorizeClassName">
-                                        Vectorize Collection Name
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <h5 class="mb-3">HNSW Vector Index Configuration</h5>
-                        <div class="row mb-3">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label for="updateMaxConnections" class="form-label">Max Connections</label>
-                                <input type="number" class="form-control" id="updateMaxConnections" min="2" placeholder="e.g., 64">
-                                <div class="form-text">Higher values improve recall but increase memory usage</div>
+                                <input type="number" class="form-control" id="updateMaxConnections" placeholder="Default: 64">
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label for="updateEfConstruction" class="form-label">EF Construction</label>
-                                <input type="number" class="form-control" id="updateEfConstruction" min="2" placeholder="e.g., 128">
-                                <div class="form-text">Higher values improve recall but slow down indexing</div>
+                                <input type="number" class="form-control" id="updateEfConstruction" placeholder="Default: 128">
                             </div>
                         </div>
                         
-                        <!-- New Container for Properties -->
-                        <div id="updatePropContainer" class="mt-4">
-                            <!-- Properties will be added dynamically here -->
-                        </div>
+                        <!-- Container for existing properties and adding new ones -->
+                        <div id="updatePropContainer"></div>
+                        
+                        <!-- Success and error messages -->
+                        <div class="alert alert-success mt-3" id="updateClassSuccess" style="display: none;"></div>
+                        <div class="alert alert-danger mt-3" id="updateClassError" style="display: none;"></div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="updateClassSubmitBtn" onclick="updateClass()">Update Collection</button>
+                    <button type="button" class="btn btn-primary" id="updateClassSubmitBtn">Update Collection</button>
                 </div>
             </div>
         </div>

@@ -1101,50 +1101,99 @@ def update_class_config(class_name: str, config: dict, base_url=WEAVIATE_URL):
         # Handle property additions if specified (using separate endpoint)
         property_results = []
         if "add_properties" in config and config["add_properties"]:
+            print(f"Adding properties to class {class_name}: {config['add_properties']}")
             for prop in config["add_properties"]:
-                # Convert from our API model to Weaviate's expected format
-                prop_data = {
-                    "dataType": prop.dataType,
-                    "name": prop.name,
-                }
-                
-                if prop.description:
-                    prop_data["description"] = prop.description
+                try:
+                    # For debugging, print out the property data
+                    print(f"Processing property for addition: {prop}")
                     
-                if prop.tokenization:
-                    prop_data["tokenization"] = prop.tokenization
+                    # Verify property has required fields
+                    if "name" not in prop or not prop["name"]:
+                        raise ValueError("Property must have a name")
                     
-                if prop.indexInverted is not None:
-                    prop_data["indexInverted"] = prop.indexInverted
-                
-                # Add property using Weaviate v4 approach
-                prop_url = f"{base_url}/v1/schema/{class_name}/properties"
-                prop_response = requests.post(
-                    prop_url, 
-                    json=prop_data,
-                    headers=create_weaviate_headers()
-                )
-                
-                if prop_response.status_code == 200:
+                    if "dataType" not in prop or not prop["dataType"]:
+                        raise ValueError("Property must have a dataType")
+                    
+                    # Convert from our API model to Weaviate's expected format
+                    prop_data = {
+                        "dataType": prop["dataType"] if isinstance(prop["dataType"], list) else [prop["dataType"]],
+                        "name": prop["name"],
+                    }
+                    
+                    if "description" in prop and prop["description"]:
+                        prop_data["description"] = prop["description"]
+                        
+                    if "tokenization" in prop and prop["tokenization"]:
+                        prop_data["tokenization"] = prop["tokenization"]
+                        
+                    if "indexInverted" in prop:
+                        prop_data["indexInverted"] = prop["indexInverted"]
+                    
+                    # Add property using Weaviate v4 approach
+                    prop_url = f"{base_url}/v1/schema/{class_name}/properties"
+                    
+                    print(f"Adding property to {class_name}: {json.dumps(prop_data)}")
+                    
+                    prop_response = requests.post(
+                        prop_url, 
+                        json=prop_data,
+                        headers=create_weaviate_headers()
+                    )
+                    
+                    print(f"Property add response: {prop_response.status_code} - {prop_response.text}")
+                    
+                    if prop_response.status_code == 200:
+                        property_results.append({
+                            "name": prop["name"],
+                            "status": "success"
+                        })
+                    else:
+                        # Try to extract meaningful error message
+                        error_message = "Unknown error"
+                        try:
+                            error_data = prop_response.json()
+                            if "error" in error_data:
+                                error_message = error_data["error"]
+                            elif "message" in error_data:
+                                error_message = error_data["message"]
+                            else:
+                                error_message = prop_response.text
+                        except:
+                            error_message = prop_response.text
+                            
+                        property_results.append({
+                            "name": prop["name"],
+                            "status": "error",
+                            "message": error_message
+                        })
+                        print(f"Error adding property {prop['name']}: {prop_response.status_code} - {error_message}")
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
                     property_results.append({
-                        "name": prop.name,
-                        "status": "success"
-                    })
-                else:
-                    property_results.append({
-                        "name": prop.name,
+                        "name": prop.get("name", "unknown"),
                         "status": "error",
-                        "message": prop_response.text
+                        "message": str(e)
                     })
+                    print(f"Exception adding property: {str(e)}")
         
         # Update class config if we have settings to update
         config_response = None
+        config_result = None
         if weaviate_config:
+            print(f"Updating class {class_name} config with: {json.dumps(weaviate_config)}")
             config_response = requests.put(
                 url, 
                 json=weaviate_config, 
                 headers=create_weaviate_headers()
             )
+            
+            print(f"Config update response: {config_response.status_code} - {config_response.text}")
+            
+            try:
+                config_result = config_response.json()
+            except:
+                config_result = {"text": config_response.text}
         
         # Prepare the response
         result = {"status": "success"}
@@ -1152,24 +1201,35 @@ def update_class_config(class_name: str, config: dict, base_url=WEAVIATE_URL):
         if config_response:
             if config_response.status_code == 200:
                 result["config_update"] = "success"
+                result["config_data"] = config_result
             else:
                 result["config_update"] = "error"
-                result["config_message"] = config_response.text
-                # Don't raise exception here as property updates might have succeeded
+                try:
+                    # Try to extract a meaningful error message
+                    config_error = config_response.json()
+                    if "error" in config_error:
+                        result["config_message"] = config_error["error"]
+                    elif "message" in config_error:
+                        result["config_message"] = config_error["message"]
+                    else:
+                        result["config_message"] = config_response.text
+                except:
+                    result["config_message"] = config_response.text
         
         if property_results:
             result["property_updates"] = property_results
             
-        # If everything failed, raise an exception
-        if (config_response and config_response.status_code != 200 and 
-            all(p["status"] == "error" for p in property_results)):
-            raise HTTPException(
-                status_code=400, 
-                detail="All updates failed"
-            )
+        # Check whether anything succeeded
+        if ((config_response and config_response.status_code != 200) and 
+            (property_results and all(p["status"] == "error" for p in property_results))):
+            result["status"] = "error"
+            result["message"] = "All updates failed"
             
         return result
     except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"Error in update_class_config: {str(e)}")
         raise HTTPException(
             status_code=500, 
             detail=f"Error updating class configuration: {str(e)}"
@@ -1182,12 +1242,29 @@ async def update_class_config_endpoint(
     config: UpdateClassConfigRequest = Body(..., description="Configuration to update")
 ):
     """Update the configuration of a class in Weaviate"""
-    # Convert the model to a dictionary
-    config_dict = config.model_dump(exclude_none=True)
-    
-    # Call the function to update the class configuration
-    result = update_class_config(class_name, config_dict)
-    return result
+    try:
+        # Convert the model to a dictionary
+        config_dict = config.model_dump(exclude_none=True)
+        
+        # Make sure we extract property objects correctly
+        if "add_properties" in config_dict and config_dict["add_properties"] is not None:
+            # Ensure each property is properly formatted for the API request
+            for prop in config_dict["add_properties"]:
+                print(f"Processing property: {prop}")
+                
+                # No further processing needed, the update_class_config function handles this
+        
+        # Call the function to update the class configuration
+        result = update_class_config(class_name, config_dict)
+        return result
+    except Exception as e:
+        print(f"Error in update_class_config_endpoint: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error updating class: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import socket
