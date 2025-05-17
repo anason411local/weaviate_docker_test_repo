@@ -3,17 +3,8 @@ import os
 
 # --- Configuration ---
 # Replace with your Weaviate instance URL
-WEAVIATE_URL = "http://54.193.125.84:8090" # Or "http://your-server-ip:8080"
+WEAVIATE_URL = "http://127.0.0.1:8090" # Or "http://your-server-ip:8080"
 
-# Optional: If you have authentication enabled, configure it here
-# For API Key Authentication (e.g., if WCS_AUTHENTICATION_APIKEY_ALLOWED=true)
-# WEAVIATE_API_KEY = "YOUR-WEAVIATE-API-KEY"
-# auth_config = weaviate.AuthApiKey(api_key=WEAVIATE_API_KEY)
-
-# For OIDC Authentication (more complex, refer to Weaviate docs if you set this up)
-# auth_config = weaviate.AuthClientPassword(username="user", password="password")
-
-# If no authentication is enabled on your self-hosted instance:
 auth_config = None
 
 # --- Connect to Weaviate ---
