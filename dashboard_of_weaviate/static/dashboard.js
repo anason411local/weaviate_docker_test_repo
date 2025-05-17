@@ -176,7 +176,6 @@ function showView(viewName) {
 async function loadDashboard() {
     try {
         // Show loading indicators
-        elements.serverInfo.style.display = 'none';
         elements.classesTableContainer.style.display = 'none';
         elements.classesLoading.style.display = 'flex';
         
@@ -202,58 +201,6 @@ async function loadDashboard() {
                 
                 elements.modulesInfo.innerHTML = modulesList || 'No modules found';
             }
-            
-            // Server details expandable section
-            const serverDetails = meta.meta;
-            let serverDetailsHtml = `
-                <div class="accordion mt-3" id="serverDetailsAccordion">
-                    <div class="accordion-item">
-                        <h2 class="accordion-header" id="serverDetailsHeading">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
-                                    data-bs-target="#serverDetailsCollapse" aria-expanded="false" 
-                                    aria-controls="serverDetailsCollapse">
-                                <i class="bi bi-info-circle me-2"></i> Detailed Server Information
-                            </button>
-                        </h2>
-                        <div id="serverDetailsCollapse" class="accordion-collapse collapse" 
-                             aria-labelledby="serverDetailsHeading" data-bs-parent="#serverDetailsAccordion">
-                            <div class="accordion-body">
-                                <div class="table-responsive">
-                                    <table class="table table-striped">
-                                        <tbody>
-                                            <tr>
-                                                <th>Version</th>
-                                                <td>${serverDetails.version || 'Unknown'}</td>
-                                            </tr>
-                                            <tr>
-                                                <th>Hostname</th>
-                                                <td>${serverDetails.hostname || 'Unknown'}</td>
-                                            </tr>
-                                            <tr>
-                                                <th>Git Hash</th>
-                                                <td>${serverDetails.gitHash || 'Unknown'}</td>
-                                            </tr>
-                                            <tr>
-                                                <th>Architecture</th>
-                                                <td>${serverDetails.architecture || 'Unknown'}</td>
-                                            </tr>
-                                            <tr>
-                                                <th>OS</th>
-                                                <td>${serverDetails.os || 'Unknown'}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // Append server details to the server info section
-            const serverDetailsContainer = document.createElement('div');
-            serverDetailsContainer.innerHTML = serverDetailsHtml;
-            elements.serverInfo.appendChild(serverDetailsContainer);
         }
 
         // Fetch Docker container information
