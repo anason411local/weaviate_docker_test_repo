@@ -145,6 +145,8 @@ def clean_text(text):
     return cleaned
 
 def extract_json_metadata(pdf_path):
+    """Extract metadata from JSON file associated with a PDF.
+    Handles all JSON fields with document_ prefix to match schema."""
     try:
         pdf_base_name = os.path.basename(pdf_path)
         pdf_name_no_ext = os.path.splitext(pdf_base_name)[0]
@@ -164,12 +166,28 @@ def extract_json_metadata(pdf_path):
                     break
         if not json_path or not os.path.exists(json_path):
             return {}
+            
         with open(json_path, 'r', encoding='utf-8') as f:
             json_data = json.load(f)
-        if 'id' in json_data: del json_data['id']
+            
+        if 'id' in json_data: 
+            del json_data['id']
+            
         processed_data = {}
         for key, value in json_data.items():
-            processed_data[f"document_{key}"] = json.dumps(value) if isinstance(value, (dict, list)) else value
+            field_name = f"document_{key}"
+            
+            # Preserve primitive data types for schema compatibility
+            if isinstance(value, (bool, int, float, str)):
+                processed_data[field_name] = value
+            else:
+                # Convert complex objects to JSON strings
+                try:
+                    processed_data[field_name] = json.dumps(value)
+                except (TypeError, OverflowError):
+                    # If JSON serialization fails, convert to string representation
+                    processed_data[field_name] = str(value)
+                    
         return processed_data
     except Exception as e:
         print(f"Error extracting JSON metadata from {pdf_path}: {e}")
@@ -512,11 +530,69 @@ def check_weaviate_connection():
         print(f"Details: {e}")
         return False
 
+def discover_json_fields():
+    """
+    Scan the pdfs directory for JSON files and extract potential schema fields with document_ prefix.
+    
+    Returns:
+        dict: Map of discovered field names to their data types
+    """
+    potential_fields = {}
+    pdf_dir = "pdfs"
+    
+    try:
+        if not os.path.exists(pdf_dir):
+            print(f"PDFs directory '{pdf_dir}' not found, skipping JSON field discovery.")
+            return potential_fields
+            
+        # Find all JSON files in the pdfs directory
+        json_files = []
+        for root, _, files in os.walk(pdf_dir):
+            json_files.extend([os.path.join(root, f) for f in files if f.lower().endswith('.json')])
+        
+        print(f"Found {len(json_files)} JSON files for schema analysis")
+        
+        # Process each JSON file to identify fields
+        for json_path in json_files:
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # Extract fields
+                for key, value in data.items():
+                    field_name = f"document_{key}"
+                    
+                    # Determine data type
+                    if isinstance(value, bool):
+                        field_type = "boolean"
+                    elif isinstance(value, int):
+                        field_type = "int"
+                    elif isinstance(value, float):
+                        field_type = "number"
+                    elif isinstance(value, (dict, list)):
+                        field_type = "text"  # Complex objects stored as JSON strings
+                    else:
+                        field_type = "text"  # Default to text
+                    
+                    potential_fields[field_name] = field_type
+            except Exception as e:
+                print(f"Error processing JSON file {json_path}: {e}")
+                continue
+                
+        print(f"Discovered {len(potential_fields)} potential document fields from JSON files")
+    except Exception as e:
+        print(f"Error during JSON field discovery: {e}")
+    
+    return potential_fields
+
 def create_collection_if_not_exists():
     if not check_weaviate_connection(): return False
     headers = create_weaviate_headers()
     collection_name = "PDFDocuments"
     schema_url = f"{WEAVIATE_URL}/v1/schema/{collection_name}"
+    
+    # Discover JSON fields that should be included in the schema
+    json_fields = discover_json_fields()
     
     # Schema definition with corrected data types
     schema = {
@@ -537,7 +613,6 @@ def create_collection_if_not_exists():
             {"name": "feature_readability_stats_avg_sentence_length", "dataType": ["number"]},
         ]
     }
-    
     # Add all boolean fields from default_meta as boolean properties
     default_meta_keys_for_schema = {
         "has_toc": "boolean", "has_links": "boolean", "has_forms": "boolean", 
@@ -558,7 +633,12 @@ def create_collection_if_not_exists():
     for prop_name, prop_type in other_meta_keys.items():
          if not any(p["name"] == prop_name for p in schema["properties"]):
             schema["properties"].append({"name": prop_name, "dataType": [prop_type]})
-
+    
+    # Add discovered JSON fields
+    for field_name, field_type in json_fields.items():
+        if not any(p["name"] == field_name for p in schema["properties"]):
+            schema["properties"].append({"name": field_name, "dataType": [field_type]})
+    
     try:
         # Check if collection exists
         response = requests.get(schema_url, headers=headers)
@@ -566,43 +646,112 @@ def create_collection_if_not_exists():
         if response.status_code == 200:
             print(f"✅ Collection '{collection_name}' already exists.")
             
-            # Ask user what to do
-            print("\nOptions for existing collection:")
-            print("1. Add new objects only (skips existing objects with same UUID)")
-            print("2. Delete collection and recreate with all objects")
+            # Check if schema needs updating with new fields
+            current_schema = response.json()
+            current_properties = {prop.get("name"): prop.get("dataType", ["text"])[0] 
+                               for prop in current_schema.get("properties", [])}
             
-            user_choice = input("Enter your choice (1 or 2): ").strip()
+            # Find new properties needed
+            new_properties = []
+            for prop in schema["properties"]:
+                prop_name = prop["name"]
+                if prop_name not in current_properties:
+                    new_properties.append(prop)
             
-            if user_choice == "2":
-                print(f"Deleting collection '{collection_name}' to recreate with new schema...")
-                delete_response = requests.delete(schema_url, headers=headers)
-                if delete_response.status_code not in [200, 204, 404]:
-                    print(f"❌ Error deleting collection: {delete_response.status_code} - {delete_response.text}")
-                    return False
-                print(f"✅ Successfully deleted collection '{collection_name}'.")
+            if new_properties:
+                print(f"Adding {len(new_properties)} new properties to existing schema:")
+                for prop in new_properties:
+                    print(f"  - {prop['name']} ({prop['dataType'][0]})")
                 
-                # Create new collection
-                create_response = requests.post(f"{WEAVIATE_URL}/v1/schema", headers=headers, json=schema)
-                if create_response.status_code == 200:
-                    print(f"✅ Created new collection '{collection_name}' successfully.")
-                    global RECREATED_COLLECTION
-                    RECREATED_COLLECTION = True
+                # Ask user what to do
+                print("\nOptions for existing collection:")
+                print("1. Add new fields to schema (preserves existing data)")
+                print("2. Delete collection and recreate with updated schema")
+                print("3. Continue with existing schema (may lose JSON metadata)")
+                
+                user_choice = input("Enter your choice (1, 2, or 3): ").strip()
+                
+                if user_choice == "1":
+                    # Update schema with new properties
+                    for prop in new_properties:
+                        try:
+                            prop_response = requests.post(
+                                f"{schema_url}/properties",
+                                headers=headers,
+                                json=prop
+                            )
+                            if prop_response.status_code == 200:
+                                print(f"  ✅ Added property: {prop['name']}")
+                            else:
+                                print(f"  ❌ Failed to add property {prop['name']}: {prop_response.status_code}")
+                        except Exception as e:
+                            print(f"  ❌ Error adding property {prop['name']}: {e}")
+                    
+                    global CHECK_EXISTING_OBJECTS
+                    CHECK_EXISTING_OBJECTS = True
                     return True
+                
+                elif user_choice == "2":
+                    print(f"Deleting collection '{collection_name}' to recreate with updated schema...")
+                    delete_response = requests.delete(schema_url, headers=headers)
+                    if delete_response.status_code not in [200, 204, 404]:
+                        print(f"❌ Error deleting collection: {delete_response.status_code} - {delete_response.text}")
+                        return False
+                    print(f"✅ Successfully deleted collection '{collection_name}'.")
+                    
+                    # Create new collection with full schema
+                    create_response = requests.post(f"{WEAVIATE_URL}/v1/schema", headers=headers, json=schema)
+                    if create_response.status_code == 200:
+                        print(f"✅ Created new collection '{collection_name}' with updated schema including JSON fields")
+                        global RECREATED_COLLECTION
+                        RECREATED_COLLECTION = True
+                        return True
+                    else:
+                        print(f"❌ Error creating schema: {create_response.status_code} - {create_response.text}")
+                        return False
                 else:
-                    print(f"❌ Error creating schema: {create_response.status_code} - {create_response.text}")
-                    return False
+                    # Default to option 3: continue with existing schema
+                    print(f"Continuing with existing schema for '{collection_name}' (some JSON metadata may not be stored)")
+                    CHECK_EXISTING_OBJECTS = True
+                    return True
             else:
-                # Default to option 1: keep collection, add new objects
-                print(f"Keeping existing collection '{collection_name}'. Will add new objects only.")
-                global CHECK_EXISTING_OBJECTS
-                CHECK_EXISTING_OBJECTS = True
-                return True
+                print("Existing schema contains all needed properties. Will add new objects only.")
+                
+                # Ask user what to do about existing objects
+                print("\nOptions for handling objects:")
+                print("1. Skip existing objects (objects with same UUID)")
+                print("2. Delete collection and recreate with all objects")
+                
+                user_choice = input("Enter your choice (1 or 2): ").strip()
+                
+                if user_choice == "2":
+                    print(f"Deleting collection '{collection_name}' to recreate with new objects...")
+                    delete_response = requests.delete(schema_url, headers=headers)
+                    if delete_response.status_code not in [200, 204, 404]:
+                        print(f"❌ Error deleting collection: {delete_response.status_code} - {delete_response.text}")
+                        return False
+                    print(f"✅ Successfully deleted collection '{collection_name}'.")
+                    
+                    # Create new collection
+                    create_response = requests.post(f"{WEAVIATE_URL}/v1/schema", headers=headers, json=schema)
+                    if create_response.status_code == 200:
+                        print(f"✅ Created new collection '{collection_name}' successfully.")
+                        RECREATED_COLLECTION = True
+                        return True
+                    else:
+                        print(f"❌ Error creating schema: {create_response.status_code} - {create_response.text}")
+                        return False
+                else:
+                    # Default to option 1: keep collection, add new objects
+                    print(f"Keeping existing collection '{collection_name}'. Will add new objects only.")
+                    CHECK_EXISTING_OBJECTS = True
+                    return True
         else:
             # Collection doesn't exist, create it
             print(f"Collection '{collection_name}' does not exist. Creating with schema...")
             create_response = requests.post(f"{WEAVIATE_URL}/v1/schema", headers=headers, json=schema)
             if create_response.status_code == 200:
-                print(f"✅ Created collection '{collection_name}' successfully.")
+                print(f"✅ Created collection '{collection_name}' with {len(schema['properties'])} properties including JSON fields")
                 return True
             else:
                 print(f"❌ Error creating schema: {create_response.status_code} - {create_response.text}")
@@ -645,6 +794,15 @@ def create_weaviate_object(doc_properties, vector):
         if k in ['creation_date', 'modification_date'] and (not v or v == ''):
             continue
             
+        # Handle document_ fields specifically
+        if k.startswith('document_'):
+            if isinstance(v, (dict, list)):
+                # Convert complex types to JSON string for storage
+                sanitized_properties[k] = json.dumps(v)
+            else:
+                sanitized_properties[k] = v
+            continue
+            
         # Handle boolean values that might be strings
         if isinstance(v, str):
             if v.lower() == "true": 
@@ -680,6 +838,22 @@ def create_weaviate_object(doc_properties, vector):
             return True
         else:
             print(f"❌ Error creating object {object_id}: {response.status_code} - {response.text}")
+            # If the error is due to property type mismatch, log details to help debugging
+            if response.status_code == 422:
+                try:
+                    error_details = response.json()
+                    print(f"  Details: {error_details}")
+                    # Try to identify problematic properties
+                    if 'error' in error_details and 'message' in error_details['error']:
+                        error_msg = error_details['error']['message']
+                        if 'property' in error_msg.lower():
+                            prop_match = re.search(r'property\s+([a-zA-Z0-9_]+)', error_msg.lower())
+                            if prop_match:
+                                problem_prop = prop_match.group(1)
+                                value = sanitized_properties.get(problem_prop, "unknown")
+                                print(f"  Problem property: {problem_prop}, Value: {value}, Type: {type(value).__name__}")
+                except:
+                    pass  # If we can't parse the error details, just continue
             return False
     except requests.exceptions.RequestException as e:
         print(f"Error creating object post: {e}")
