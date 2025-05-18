@@ -6,7 +6,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 # Fixed model for cosine similarity analysis request
 class CosineSimilarityRequest(BaseModel):
     # Make class_name optional since it's already in the path
-    sample_size: int = Field(100, description="Number of objects to sample for analysis", ge=10, le=10000)
+    sample_size: int = Field(100, description="Number of sample vectors for analysis", ge=10, le=1000000)
 
 # The rest of the endpoint logic stays the same
 def compute_cosine_similarities(documents):

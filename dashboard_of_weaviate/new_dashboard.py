@@ -1800,7 +1800,7 @@ async def call_gemini_api(prompt, api_key, model="gemini-1.5-flash"):
 # Add model for cosine similarity analysis request
 class CosineSimilarityRequest(BaseModel):
     class_name: Optional[str] = Field(None, description="Name of the class to analyze (optional, taken from path)")
-    sample_size: int = Field(100, description="Number of objects to sample for analysis", ge=10, le=10000)
+    sample_size: int = Field(100, description="Number of sample vectors for analysis", ge=10, le=1000000)
 
 # Add API endpoint for cosine similarity analysis
 @app.post("/api/classes/{class_name}/cosine-similarity")
@@ -1817,7 +1817,7 @@ async def analyze_cosine_similarity(
         # This ensures the path parameter takes precedence
         
         # Get sample objects with their vectors
-        limit = min(request.sample_size, 10000)  # Limit to 10,000 objects maximum
+        limit = request.sample_size  # Use the full requested sample size
         
         # First get all property names
         schema_response = requests.get(f"{WEAVIATE_URL}/v1/schema/{class_name}", headers=create_weaviate_headers())

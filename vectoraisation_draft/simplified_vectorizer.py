@@ -54,6 +54,9 @@ WEAVIATE_URL = "http://localhost:8090"  # Changed from 127.0.0.1 to localhost
 # If your local Weaviate does not use an API key, WEAVIATE_API_KEY can be empty or not set in .env.
 WEAVIATE_API_KEY = os.getenv("WEAVIATE_API_KEY")
 
+# Collection name - centralized here for easy changing
+COLLECTION_NAME = "Area_expansion_Dep_Anas"
+
 print(f"Attempting to connect to Weaviate at: {WEAVIATE_URL}")
 
 if not WEAVIATE_API_KEY:
@@ -588,7 +591,7 @@ def discover_json_fields():
 def create_collection_if_not_exists():
     if not check_weaviate_connection(): return False
     headers = create_weaviate_headers()
-    collection_name = "PDFDocuments"
+    collection_name = COLLECTION_NAME
     schema_url = f"{WEAVIATE_URL}/v1/schema/{collection_name}"
     
     # Discover JSON fields that should be included in the schema
@@ -771,7 +774,7 @@ def check_object_exists(object_id):
         
     headers = create_weaviate_headers()
     try:
-        response = requests.get(f"{WEAVIATE_URL}/v1/objects/PDFDocuments/{object_id}", headers=headers)
+        response = requests.get(f"{WEAVIATE_URL}/v1/objects/{COLLECTION_NAME}/{object_id}", headers=headers)
         return response.status_code == 200
     except requests.exceptions.RequestException:
         return False  # If error checking, assume object doesn't exist
@@ -827,7 +830,7 @@ def create_weaviate_object(doc_properties, vector):
             
     object_data = {
         "id": object_id,
-        "class": "PDFDocuments", # Must match collection name
+        "class": COLLECTION_NAME, # Must match collection name
         "properties": sanitized_properties,
         "vector": vector
     }

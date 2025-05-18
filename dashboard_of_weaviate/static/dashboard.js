@@ -2639,8 +2639,8 @@ async function runCosineSimilarityAnalysis(className) {
     const sampleSize = parseInt(document.getElementById('cosineSampleSize').value);
     
     // Validate sample size
-    if (isNaN(sampleSize) || sampleSize < 10 || sampleSize > 10000) {
-        alert('Please enter a valid sample size between 10 and 10000');
+    if (isNaN(sampleSize) || sampleSize < 10 || sampleSize > 1000000) {
+        alert('Please enter a valid sample size between 10 and 1000000');
         return;
     }
     
@@ -2698,23 +2698,19 @@ function renderCosineStatistics(stats) {
     const tableBody = document.querySelector('#cosineStatsTable tbody');
     tableBody.innerHTML = '';
     
-    // Define color scale for values
+    // Define vibrant color scale for values (using a full rainbow gradient)
     const getColor = (value) => {
-        // For cosine similarity, higher values generally indicate more similarity
-        // Using a scale from blue (low) to purple (high)
-        if (value >= 0.8) return '#673AB7'; // High - purple
-        if (value >= 0.6) return '#3F51B5'; // Medium-high - indigo
-        if (value >= 0.4) return '#2196F3'; // Medium - blue
-        if (value >= 0.2) return '#03A9F4'; // Medium-low - light blue
-        return '#4FC3F7'; // Low - very light blue
+        // We'll use a rainbow scale from blue to red
+        const hue = Math.max(0, Math.min(240 - (value * 240), 240)); // 240 (blue) to 0 (red)
+        return `hsl(${hue}, 100%, 50%)`;
     };
     
     // Add header with styling
     const headerRow = document.createElement('tr');
     headerRow.innerHTML = `
-        <th style="background-color: rgba(63, 81, 181, 0.1);">Metric</th>
-        <th style="background-color: rgba(63, 81, 181, 0.1);">Value</th>
-        <th style="background-color: rgba(63, 81, 181, 0.1);">Visualization</th>
+        <th style="background-color: rgba(63, 81, 181, 0.1); width: 25%;">Metric</th>
+        <th style="background-color: rgba(63, 81, 181, 0.1); width: 15%;">Value</th>
+        <th style="background-color: rgba(63, 81, 181, 0.1); width: 60%;">Visualization</th>
     `;
     tableBody.appendChild(headerRow);
     
@@ -2754,6 +2750,9 @@ function renderCosineStatistics(stats) {
         const metricCell = document.createElement('td');
         metricCell.style.fontWeight = 'bold';
         metricCell.style.padding = '8px 12px';
+        metricCell.style.whiteSpace = 'nowrap';
+        metricCell.style.overflow = 'hidden';
+        metricCell.style.textOverflow = 'ellipsis';
         metricCell.textContent = metric;
         
         // Create the value cell with styling
@@ -2762,6 +2761,7 @@ function renderCosineStatistics(stats) {
         valueCell.style.textAlign = 'right';
         valueCell.style.fontFamily = 'monospace';
         valueCell.style.fontSize = '14px';
+        valueCell.style.whiteSpace = 'nowrap';
         
         // Create the visualization cell
         const visualCell = document.createElement('td');
@@ -2781,24 +2781,30 @@ function renderCosineStatistics(stats) {
                 const barWidthPercent = Math.max(Math.min(visualValue, 1), 0) * 100;
                 const color = getColor(visualValue);
                 
-                // Create a bar visualization
+                // Create a bar visualization with improved container
                 visualCell.innerHTML = `
-                    <div style="display: flex; align-items: center; height: 20px;">
+                    <div style="position: relative; height: 20px; width: 100%;">
                         <div style="
+                            position: absolute;
+                            top: 0;
+                            left: 0;
                             width: ${barWidthPercent}%; 
                             height: 16px; 
-                            background-color: ${color};
+                            background: linear-gradient(to right, ${color}, ${color}BB);
                             border-radius: 3px;
-                            position: relative;
                             min-width: 2px;
                             max-width: 100%;
+                            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
                         "></div>
                         <div style="
-                            position: absolute; 
-                            margin-left: ${Math.min(barWidthPercent, 90)}%;
-                            font-size: 9px;
-                            color: ${barWidthPercent > 50 ? 'white' : '#333'};
-                            transform: translateX(${barWidthPercent > 50 ? '-100%' : '5px'});
+                            position: absolute;
+                            top: 0;
+                            right: 5px;
+                            font-size: 11px;
+                            color: #333;
+                            line-height: 16px;
+                            font-weight: bold;
+                            text-shadow: 0 0 3px white;
                         ">${barWidthPercent.toFixed(0)}%</div>
                     </div>
                 `;
@@ -2898,21 +2904,40 @@ function getInterpretationText(metric, value) {
 function renderCosineHistogram(data) {
     const plotDiv = document.getElementById('cosineHistogramPlot');
     
-    // Create the histogram trace with enhanced styling
+    // Define a vibrant, rainbow-like color scale for histogram bars
+    const customColors = [
+        '#0048FF', // Deep blue
+        '#00A3FF', // Light blue
+        '#00FFB8', // Cyan/Teal
+        '#00FF48', // Emerald green
+        '#B1FF00', // Lime green
+        '#FFE000', // Yellow
+        '#FF7A00', // Orange
+        '#FF0000', // Red
+        '#FF00C4'  // Pink/Magenta
+    ];
+    
+    // Create the histogram trace with vibrant styling
     const trace = {
         x: data.x,
         y: data.y,
         type: 'bar',
         marker: {
+            // Use explicit color mapping for each bar
             color: data.x.map(value => {
-                // Create a more vibrant color gradient based on values
-                const intensity = Math.min(Math.max((value - data.min) / (data.max - data.min), 0.1), 1);
-                return `rgba(33, 150, 243, ${intensity * 0.9})`;
+                // Map each value to a position in the color scale
+                const position = Math.min(Math.max((value - Math.min(...data.x)) / 
+                                (Math.max(...data.x) - Math.min(...data.x)), 0), 1);
+                
+                // Get color based on position in our custom color array
+                const colorIndex = Math.floor(position * (customColors.length - 1));
+                return customColors[colorIndex];
             }),
             line: {
                 color: 'rgba(255, 255, 255, 0.8)',
                 width: 1.5
-            }
+            },
+            opacity: 0.85 // Slightly translucent for better visual effect
         },
         name: 'Frequency',
         hovertemplate: '<b>Similarity:</b> %{x:.4f}<br>' +
@@ -3087,16 +3112,13 @@ function renderCosineHistogram(data) {
                 ay: -40,
                 font: {
                     color: '#F44336',
-                    size: 13
-                },
-                bgcolor: 'rgba(255, 255, 255, 0.9)',
-                bordercolor: '#F44336',
-                borderwidth: 1,
-                borderpad: 3
+                    size: 12,
+                    family: 'Arial, sans-serif'
+                }
             },
             {
                 x: data.median,
-                y: Math.max(...data.y) * 0.9,
+                y: Math.max(...data.y) * 0.85,
                 text: `Median: ${data.median.toFixed(4)}`,
                 showarrow: true,
                 arrowhead: 2,
@@ -3104,105 +3126,74 @@ function renderCosineHistogram(data) {
                 arrowwidth: 1.5,
                 arrowcolor: '#4CAF50',
                 ax: 0,
-                ay: -40,
+                ay: 40,
                 font: {
                     color: '#4CAF50',
-                    size: 13
-                },
-                bgcolor: 'rgba(255, 255, 255, 0.9)',
-                bordercolor: '#4CAF50',
-                borderwidth: 1,
-                borderpad: 3
-            },
-            {
-                xref: 'paper',
-                yref: 'paper',
-                x: 0.99,
-                y: 0.02,
-                text: 'Click bars to view details',
-                showarrow: false,
-                font: {
-                    size: 11,
-                    color: '#777',
-                    italic: true,
+                    size: 12,
                     family: 'Arial, sans-serif'
                 }
             }
         ]
     };
     
-    // Create the plot with enhanced config
-    Plotly.newPlot(plotDiv, [trace], layout, {
-        responsive: true,
-        displayModeBar: true,
-        modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-        toImageButtonOptions: {
-            format: 'png',
-            filename: 'cosine_similarity_histogram',
-            height: 500,
-            width: 800,
-            scale: 2
-        }
+    // Create main plot with data and layout
+    Plotly.newPlot(plotDiv, [trace], layout, {responsive: true});
+    
+    // Add a color legend to help interpret the histogram
+    const infoBox = document.createElement('div');
+    infoBox.className = 'color-legend';
+    infoBox.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+        padding: 8px;
+        font-size: 12px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        z-index: 100;
+    `;
+    
+    // Create a gradient for the legend
+    let gradientHtml = '<div style="margin-bottom: 5px; font-weight: bold;">Color Scale</div><div style="display: flex; align-items: center; margin-bottom: 5px;">';
+    
+    // Add gradient bar
+    gradientHtml += '<div style="background: linear-gradient(to right, ';
+    customColors.forEach((color, index) => {
+        gradientHtml += `${color} ${index * 100 / (customColors.length - 1)}%${index < customColors.length - 1 ? ', ' : ''}`;
+    });
+    gradientHtml += '); height: 15px; width: 150px; border-radius: 2px;"></div>';
+    
+    // Add min/max labels
+    gradientHtml += '</div><div style="display: flex; justify-content: space-between; font-size: 10px;">';
+    gradientHtml += `<span>Low (${Math.min(...data.x).toFixed(2)})</span>`;
+    gradientHtml += `<span>High (${Math.max(...data.x).toFixed(2)})</span>`;
+    gradientHtml += '</div>';
+    
+    infoBox.innerHTML = gradientHtml;
+    
+    // Add close button
+    const closeButton = document.createElement('div');
+    closeButton.innerHTML = '&times;';
+    closeButton.style.cssText = `
+        position: absolute;
+        top: 2px;
+        right: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        color: #666;
+    `;
+    closeButton.addEventListener('click', () => {
+        plotDiv.removeChild(infoBox);
     });
     
-    // Add click event for interactivity
-    plotDiv.on('plotly_click', function(data) {
-        const point = data.points[0];
-        
-        // Show alert with bin details for demonstration
-        const binStart = point.x - (data.x[1] - data.x[0]) / 2;
-        const binEnd = point.x + (data.x[1] - data.x[0]) / 2;
-        
-        // Create and display a popover or tooltip instead of alert for better UX
-        let infoContent = `
-            <div style="font-family:Arial; padding:10px;">
-                <h6 style="margin-top:0;">Similarity Bin Details</h6>
-                <p><b>Range:</b> ${binStart.toFixed(4)} - ${binEnd.toFixed(4)}</p>
-                <p><b>Count:</b> ${point.y} document pairs</p>
-                <p><b>Interpretation:</b> ${
-                    point.x > 0.8 ? 'High similarity - these documents are very closely related.' :
-                    point.x > 0.5 ? 'Moderate similarity - these documents share some concepts.' :
-                    'Low similarity - these documents are mostly unrelated.'
-                }</p>
-            </div>
-        `;
-        
-        // Use a custom lightweight tooltip/modal implementation
-        let infoBox = document.getElementById('histogram-info-box');
-        if (!infoBox) {
-            infoBox = document.createElement('div');
-            infoBox.id = 'histogram-info-box';
-            infoBox.style.cssText = `
-                position: absolute;
-                max-width: 300px;
-                background: white;
-                border-radius: 5px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-                z-index: 1000;
-                display: none;
-            `;
-            document.body.appendChild(infoBox);
-        }
-        
-        // Position near the click but ensure it's visible
-        const rect = plotDiv.getBoundingClientRect();
-        infoBox.style.left = (rect.left + point.xaxis.d2p(point.x) + window.scrollX + 10) + 'px';
-        infoBox.style.top = (rect.top + point.yaxis.d2p(point.y) + window.scrollY - 100) + 'px';
-        infoBox.innerHTML = infoContent;
-        infoBox.style.display = 'block';
-        
-        // Close on click outside
-        const closeInfoBox = function(e) {
-            if (e.target !== infoBox && !infoBox.contains(e.target)) {
-                infoBox.style.display = 'none';
-                document.removeEventListener('click', closeInfoBox);
-            }
-        };
-        
-        // Add a small delay to prevent immediate closure
-        setTimeout(() => {
-            document.addEventListener('click', closeInfoBox);
-        }, 100);
+    infoBox.appendChild(closeButton);
+    plotDiv.appendChild(infoBox);
+    
+    // Add a resize listener to ensure the plot remains responsive
+    window.addEventListener('resize', () => {
+        Plotly.Plots.resize(plotDiv);
     });
 }
 
