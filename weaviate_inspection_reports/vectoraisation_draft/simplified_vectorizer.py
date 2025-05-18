@@ -518,6 +518,23 @@ def create_collection_if_not_exists():
     collection_name = "PDFDocuments"
     schema_url = f"{WEAVIATE_URL}/v1/schema/{collection_name}"
     
+    try:
+        # First check if collection exists
+        response = requests.get(schema_url, headers=headers)
+        if response.status_code == 200:
+            print(f"✅ Collection '{collection_name}' already exists. Deleting it to recreate with correct schema...")
+            # Delete existing collection
+            delete_response = requests.delete(schema_url, headers=headers)
+            if delete_response.status_code not in [200, 204, 404]:
+                print(f"❌ Error deleting collection: {delete_response.status_code} - {delete_response.text}")
+                return False
+            print(f"✅ Successfully deleted collection '{collection_name}'.")
+    except requests.exceptions.RequestException as e:
+        print(f"Error checking collection existence: {e}")
+        return False # Cannot proceed if schema check fails due to connection
+
+    print(f"Creating collection '{collection_name}' with updated schema...")
+    
     # Schema definition with corrected data types
     schema = {
         "class": collection_name,
@@ -537,7 +554,6 @@ def create_collection_if_not_exists():
             {"name": "feature_readability_stats_avg_sentence_length", "dataType": ["number"]},
         ]
     }
-    
     # Add all boolean fields from default_meta as boolean properties
     default_meta_keys_for_schema = {
         "has_toc": "boolean", "has_links": "boolean", "has_forms": "boolean", 
@@ -560,84 +576,24 @@ def create_collection_if_not_exists():
             schema["properties"].append({"name": prop_name, "dataType": [prop_type]})
 
     try:
-        # Check if collection exists
-        response = requests.get(schema_url, headers=headers)
-        
+        response = requests.post(f"{WEAVIATE_URL}/v1/schema", headers=headers, json=schema)
         if response.status_code == 200:
-            print(f"✅ Collection '{collection_name}' already exists.")
-            
-            # Ask user what to do
-            print("\nOptions for existing collection:")
-            print("1. Add new objects only (skips existing objects with same UUID)")
-            print("2. Delete collection and recreate with all objects")
-            
-            user_choice = input("Enter your choice (1 or 2): ").strip()
-            
-            if user_choice == "2":
-                print(f"Deleting collection '{collection_name}' to recreate with new schema...")
-                delete_response = requests.delete(schema_url, headers=headers)
-                if delete_response.status_code not in [200, 204, 404]:
-                    print(f"❌ Error deleting collection: {delete_response.status_code} - {delete_response.text}")
-                    return False
-                print(f"✅ Successfully deleted collection '{collection_name}'.")
-                
-                # Create new collection
-                create_response = requests.post(f"{WEAVIATE_URL}/v1/schema", headers=headers, json=schema)
-                if create_response.status_code == 200:
-                    print(f"✅ Created new collection '{collection_name}' successfully.")
-                    global RECREATED_COLLECTION
-                    RECREATED_COLLECTION = True
-                    return True
-                else:
-                    print(f"❌ Error creating schema: {create_response.status_code} - {create_response.text}")
-                    return False
-            else:
-                # Default to option 1: keep collection, add new objects
-                print(f"Keeping existing collection '{collection_name}'. Will add new objects only.")
-                global CHECK_EXISTING_OBJECTS
-                CHECK_EXISTING_OBJECTS = True
-                return True
+            print(f"✅ Created collection '{collection_name}' successfully.")
+            return True
         else:
-            # Collection doesn't exist, create it
-            print(f"Collection '{collection_name}' does not exist. Creating with schema...")
-            create_response = requests.post(f"{WEAVIATE_URL}/v1/schema", headers=headers, json=schema)
-            if create_response.status_code == 200:
-                print(f"✅ Created collection '{collection_name}' successfully.")
-                return True
-            else:
-                print(f"❌ Error creating schema: {create_response.status_code} - {create_response.text}")
-                return False
+            print(f"❌ Error creating schema: {response.status_code} - {response.text}")
+            return False
     except requests.exceptions.RequestException as e:
-        print(f"Error during collection management: {e}")
+        print(f"Error during schema creation post: {e}")
         return False
 
-# Global flags for collection management
-CHECK_EXISTING_OBJECTS = False
-RECREATED_COLLECTION = False
-
-def check_object_exists(object_id):
-    """Check if an object with the given ID already exists in Weaviate."""
-    if not CHECK_EXISTING_OBJECTS:
-        return False  # Skip check if not needed (collection was recreated)
-        
-    headers = create_weaviate_headers()
-    try:
-        response = requests.get(f"{WEAVIATE_URL}/v1/objects/PDFDocuments/{object_id}", headers=headers)
-        return response.status_code == 200
-    except requests.exceptions.RequestException:
-        return False  # If error checking, assume object doesn't exist
 
 def create_weaviate_object(doc_properties, vector):
     headers = create_weaviate_headers()
     # Generate UUID based on content to aid deduplication if re-run
     unique_str_for_id = f"{doc_properties.get('source', '')}-{doc_properties.get('page', 0)}-{doc_properties.get('text', '')[:50]}"
     object_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, unique_str_for_id))
-    
-    # Check if object already exists and skip if needed
-    if check_object_exists(object_id):
-        print(f"  Skipping existing object {object_id}")
-        return "SKIPPED"  # Return special status for skipped objects
-    
+
     # Sanitize property dictionary
     sanitized_properties = {}
     for k, v in doc_properties.items():
@@ -673,6 +629,10 @@ def create_weaviate_object(doc_properties, vector):
         "properties": sanitized_properties,
         "vector": vector
     }
+    
+    # Print sample object structure for debugging first object only
+    # if object_id == "some-known-id":
+    #    print(f"Sample object structure: {json.dumps(object_data, indent=2)}")
     
     try:
         response = requests.post(f"{WEAVIATE_URL}/v1/objects", headers=headers, json=object_data)
@@ -748,7 +708,6 @@ def main():
     error_count = 0
     retry_count = 0
     max_retries = 3
-    skipped_count = 0
 
     for i in range(0, len(documents_to_process), batch_size):
         batch_docs_properties = documents_to_process[i : i + batch_size]
@@ -769,24 +728,17 @@ def main():
                 print(f"  Embeddings generated. Importing to Weaviate...")
 
                 batch_success = 0
-                batch_skipped = 0
                 for doc_props, vector in zip(batch_docs_properties, embeddings):
-                    result = create_weaviate_object(doc_props, vector)
-                    if result == True:
+                    if create_weaviate_object(doc_props, vector):
                         success_count += 1
                         batch_success += 1
-                    elif result == "SKIPPED":
-                        batch_skipped += 1
-                        skipped_count += 1
-                        # Don't increment error count for skipped objects
                     else:
                         error_count += 1
                 
-                print(f"  Batch import finished. Batch success: {batch_success}/{len(batch_docs_properties)}, "
-                      f"Skipped: {batch_skipped}, Total success: {success_count}/{success_count+error_count}")
+                print(f"  Batch import finished. Batch success: {batch_success}/{len(batch_docs_properties)}, Total success: {success_count}/{success_count+error_count}")
                 
-                # If we had any success in this batch or skipped objects, break retry loop
-                if batch_success > 0 or batch_skipped > 0:
+                # If we had any success in this batch, break retry loop
+                if batch_success > 0:
                     break
                 
                 # If complete failure and we have retries left, we'll retry
@@ -815,11 +767,9 @@ def main():
                     error_count += len(batch_docs_properties)
 
     print(f"\n🏁 Completed! Successfully imported {success_count} / {len(documents_to_process)} document chunks.")
-    print(f"   Skipped: {skipped_count} (already existed in database)")
     print(f"   Failed: {error_count}, Retries attempted: {retry_count}")
-    print(f"   Total processed: {success_count + skipped_count + error_count} / {len(documents_to_process)}")
     
-    if success_count == 0 and skipped_count == 0:
+    if success_count == 0:
         print("\n⚠️ No documents were successfully imported. Please check the errors above.")
         print("   Common issues:")
         print("   - Schema mismatch between script and Weaviate")

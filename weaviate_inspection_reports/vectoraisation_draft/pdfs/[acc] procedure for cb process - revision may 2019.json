@@ -1,0 +1,26 @@
+{
+    "id": "1xA5HDe1avNiAoMrqfbWWqoPGrsZR2kmR_TRoa-FnI5Y",
+    "name": "[ACC] Procedure for CB Process - revision May 2019",
+    "mimeType": "application/vnd.google-apps.document",
+    "createdTime": "2019-05-22T15:45:16.233Z",
+    "modifiedTime": "2024-07-24T07:04:46.453Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Chris Phillips",
+            "photoLink": "https://lh3.googleusercontent.com/a/ACg8ocLtSlor8oND0kgzBgiYRtn0quQ0iSjRhagm7iA4t9zwgACi=s64",
+            "me": false,
+            "permissionId": "14013542739896203912",
+            "emailAddress": "c.phillips@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Kristi Amper",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjV-gv3g64VSP7UO28j26nBmCfyPZN9yeeiT5xXlDDtehNcCuUh8=s64",
+        "me": false,
+        "permissionId": "13738086670982654788",
+        "emailAddress": "kristi.amper@us.411locals.com"
+    },
+    "size": "55325"
+}

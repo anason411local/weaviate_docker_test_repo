@@ -1,0 +1,3 @@
+Collection,Objects,Properties,Vector Type,Dimension,Data Types,Avg Query Time
+PDFDocuments,124,54,none,N/A,"text(29), int(7), boolean(11), number(5), date(2)",0.0014s
+Test,0,5,none,N/A,"int(2), text(2), number[](1)",0.0013s
