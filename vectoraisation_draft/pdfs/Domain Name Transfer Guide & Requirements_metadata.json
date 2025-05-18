@@ -1,0 +1,25 @@
+{
+    "id": "1q9nTG5cdHdFKZfLFQQRkpsk2p7oVRsaxV099qF6vOP8",
+    "name": "Domain Name Transfer Guide & Requirements",
+    "mimeType": "application/vnd.google-apps.document",
+    "createdTime": "2018-07-05T10:36:20.014Z",
+    "modifiedTime": "2020-01-16T18:32:00.667Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Georgi Genchev",
+            "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjW_rwxvKQvvCdGxo9OSx_3nF-1toyF2N57EDQH0jWRnbuXojJQ=s64",
+            "me": false,
+            "permissionId": "00908539304497540614",
+            "emailAddress": "g.genchev@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Delyana Bozhilova",
+        "photoLink": "https://lh3.googleusercontent.com/a/ACg8ocLHpJczSHRcetH1ucyAdA1H3f1fGMyxl1EkzXu8TFVdmNJGJQ=s64",
+        "me": false,
+        "permissionId": "17808647461365560681",
+        "emailAddress": "d.bojilova@us.411locals.com"
+    }
+}

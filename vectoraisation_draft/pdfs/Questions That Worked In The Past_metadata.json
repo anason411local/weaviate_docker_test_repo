@@ -1,0 +1,24 @@
+{
+    "id": "1e_D7XW9H_IR397T9M1gHN5R28hzAIXsNhomIA9HG7p8",
+    "name": "Questions That Worked In The Past",
+    "mimeType": "application/vnd.google-apps.document",
+    "createdTime": "2015-12-16T23:00:37.100Z",
+    "modifiedTime": "2024-02-01T17:37:34.416Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Eric Swartzwelder",
+            "photoLink": "https://lh3.googleusercontent.com/a/ACg8ocIIOR4id_7dnZ20gOJ79nLZ-nurw-5Hx5CtVot30WbofXA_cA=s64",
+            "me": false,
+            "permissionId": "08897372831897103228",
+            "emailAddress": "e.swartzwelder@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "n.jordan",
+        "me": false,
+        "permissionId": "12345299210233813702"
+    },
+    "size": "15670"
+}

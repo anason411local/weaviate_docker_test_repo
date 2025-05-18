@@ -1,0 +1,25 @@
+{
+    "id": "1OXpmtjk9TGwCrVa_oNz5WAyVZvOt50jRQdqNvHp9iNg",
+    "name": "Area Expansion SOP",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2021-06-24T12:59:29.520Z",
+    "modifiedTime": "2023-01-27T18:38:58.798Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "j.alutaya",
+            "me": false,
+            "permissionId": "10535755694508462193",
+            "emailAddress": "j.alutaya@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Joey Owens",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjWjVxvfvwZd38Y-1GGr_z9wNRC3OTb0n5siUvEna5mCqXi4WlQV=s64",
+        "me": false,
+        "permissionId": "12793871727757852462",
+        "emailAddress": "j.owens@us.411locals.com"
+    },
+    "size": "18637068"
+}

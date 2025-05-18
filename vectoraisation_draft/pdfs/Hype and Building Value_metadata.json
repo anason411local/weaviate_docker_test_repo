@@ -1,0 +1,25 @@
+{
+    "id": "10eYxoSVqzjvVXnQpDlMLXiV-PPqUMYsmhwHVVKb9Xm0",
+    "name": "Hype and Building Value",
+    "mimeType": "application/vnd.google-apps.document",
+    "createdTime": "2014-09-11T21:14:21.548Z",
+    "modifiedTime": "2025-05-05T13:55:45.464Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Roumen Todorov",
+            "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjVEy6tZetfLKrc2G2pN_B7H6O8a7W7zyX8nHZcSiePBicLf2os7=s64",
+            "me": false,
+            "permissionId": "05352308176517381459",
+            "emailAddress": "r.todorov@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Roumen Todorov",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjVEy6tZetfLKrc2G2pN_B7H6O8a7W7zyX8nHZcSiePBicLf2os7=s64",
+        "me": false,
+        "permissionId": "05352308176517381459",
+        "emailAddress": "r.todorov@us.411locals.com"
+    }
+}

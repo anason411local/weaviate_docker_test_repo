@@ -1,0 +1,23 @@
+{
+    "id": "19bEWghF9Hceye7Rf4nk5FpCfUBYZDkDYJg53moqBLwU",
+    "name": "Corporate Webmail Forwarding",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2019-10-28T09:25:58.316Z",
+    "modifiedTime": "2022-06-03T06:30:04.842Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "m.sotirov",
+            "me": false,
+            "permissionId": "11786807619280361699",
+            "emailAddress": "m.sotirov@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "m.sotirov",
+        "me": false,
+        "permissionId": "11786807619280361699",
+        "emailAddress": "m.sotirov@us.411locals.com"
+    }
+}

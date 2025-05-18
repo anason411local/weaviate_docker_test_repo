@@ -1,0 +1,26 @@
+{
+    "id": "1t8IfcqaGD8HqAbeOOGpu8LAJIufSrOSH3xxy6qcpLkE",
+    "name": "The Power of Belief",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2024-11-11T17:25:46.437Z",
+    "modifiedTime": "2025-04-29T21:40:06.628Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Jonalyn Pelobello (Culyn Robinson)",
+            "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjUu0NXvttjapYUXZHT2Nhzys-wAfhGwZjZ9X2GEJXPl4gMJ-2Oy=s64",
+            "me": false,
+            "permissionId": "06973847733891131415",
+            "emailAddress": "j.pelobello@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "America Guzman Pacas (Sr. Trainer - Sales)",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjXTOMe3I2rerRsF2g4La6pKqP6-8sdFfI5ApL1Soc5WqERV0_5C=s64",
+        "me": false,
+        "permissionId": "17902236063016825872",
+        "emailAddress": "america.pacas@tjbpo.mx"
+    },
+    "size": "3070765"
+}

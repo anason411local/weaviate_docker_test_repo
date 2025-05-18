@@ -1,0 +1,25 @@
+{
+    "id": "1zNZvaN-7FXerkvJEYzyRDnfvDdgV0abUiOdoIeUL48w",
+    "name": "FT | Call Forwarding & Call Screening ",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2017-08-15T16:20:00.380Z",
+    "modifiedTime": "2024-01-17T22:21:59.280Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Eric Swartzwelder",
+            "photoLink": "https://lh3.googleusercontent.com/a/ACg8ocIIOR4id_7dnZ20gOJ79nLZ-nurw-5Hx5CtVot30WbofXA_cA=s64",
+            "me": false,
+            "permissionId": "08897372831897103228",
+            "emailAddress": "e.swartzwelder@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "juan.azcona",
+        "me": false,
+        "permissionId": "08267972956663245314",
+        "emailAddress": "juan.azcona@tjbpo.mx"
+    },
+    "size": "750543"
+}

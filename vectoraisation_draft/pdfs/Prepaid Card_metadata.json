@@ -1,0 +1,26 @@
+{
+    "id": "10J5PS1OWCrZZeMm9fmVHzBlxBVuokus0fyZ6oIkYPDA",
+    "name": "Prepaid Card",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2019-12-30T19:55:21.860Z",
+    "modifiedTime": "2025-05-08T19:47:55.154Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Karen Jane Alagase",
+            "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjX8k2yngtTWMcGuR7Xp7oPnVT5zaCqQdQRcBWmgAuC3NHT7skM=s64",
+            "me": false,
+            "permissionId": "10291074087994893818",
+            "emailAddress": "k.alagase@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Karen Jane Alagase",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjX8k2yngtTWMcGuR7Xp7oPnVT5zaCqQdQRcBWmgAuC3NHT7skM=s64",
+        "me": false,
+        "permissionId": "10291074087994893818",
+        "emailAddress": "k.alagase@us.411locals.com"
+    },
+    "size": "103624"
+}

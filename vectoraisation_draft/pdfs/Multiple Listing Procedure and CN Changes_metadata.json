@@ -1,0 +1,25 @@
+{
+    "id": "1rbkb_2lt6zg-TB121287rYdPDLTmFYQ1QIyi4yz9Uw0",
+    "name": "Multiple Listing Procedure and CN Changes",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2020-12-03T21:45:00.192Z",
+    "modifiedTime": "2024-02-20T21:18:53.359Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "j.alutaya",
+            "me": false,
+            "permissionId": "10535755694508462193",
+            "emailAddress": "j.alutaya@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Joey Owens",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjWjVxvfvwZd38Y-1GGr_z9wNRC3OTb0n5siUvEna5mCqXi4WlQV=s64",
+        "me": false,
+        "permissionId": "12793871727757852462",
+        "emailAddress": "j.owens@us.411locals.com"
+    },
+    "size": "11500575"
+}
