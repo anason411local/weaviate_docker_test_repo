@@ -1,0 +1,26 @@
+{
+    "id": "1fDZG055yfEH6LjX0TMSBfkiWJNQPevw7TOMH6VFc87M",
+    "name": "CAS Hype - Answering service",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2018-11-26T15:19:10.894Z",
+    "modifiedTime": "2023-11-07T16:11:08.597Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Silviya Angelova",
+            "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjVop33ti5_LJm4hNbXV1x2iHa9jlEyEXnaCJmfLmnt_GIDR8mWg=s64",
+            "me": false,
+            "permissionId": "07463059280041955337",
+            "emailAddress": "s.angelova@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Silviya Angelova",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjVop33ti5_LJm4hNbXV1x2iHa9jlEyEXnaCJmfLmnt_GIDR8mWg=s64",
+        "me": false,
+        "permissionId": "07463059280041955337",
+        "emailAddress": "s.angelova@us.411locals.com"
+    },
+    "size": "8293"
+}

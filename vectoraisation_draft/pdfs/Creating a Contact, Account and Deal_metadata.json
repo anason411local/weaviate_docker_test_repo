@@ -1,0 +1,24 @@
+{
+    "id": "1qzIxNpjmwmelHVrX7loeohNSIUrA9ZslnkMR8oQR1I4",
+    "name": "Creating a Contact, Account and Deal",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2021-01-18T20:22:42.136Z",
+    "modifiedTime": "2022-05-25T19:01:23.758Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "j.alutaya",
+            "me": false,
+            "permissionId": "10535755694508462193",
+            "emailAddress": "j.alutaya@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "j.alutaya",
+        "me": false,
+        "permissionId": "10535755694508462193",
+        "emailAddress": "j.alutaya@us.411locals.com"
+    },
+    "size": "384064"
+}

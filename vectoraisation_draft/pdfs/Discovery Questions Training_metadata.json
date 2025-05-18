@@ -1,0 +1,26 @@
+{
+    "id": "11aXK29FnXmqUvNuncI-QQpz1PAFK4wIqK3BrlKwO_8E",
+    "name": "Discovery Questions Training",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2024-10-08T23:38:09.536Z",
+    "modifiedTime": "2025-05-05T15:23:56.146Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Mauricio Escajadillo Valadez",
+            "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjWqR5AITPDvG-Otk75gn1c6xquC4VGGQg_hwUqk_eglO_zd5rI=s64",
+            "me": false,
+            "permissionId": "04507704424731440977",
+            "emailAddress": "m.valadez@tjbpo.mx"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Mauricio Escajadillo Valadez",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjWqR5AITPDvG-Otk75gn1c6xquC4VGGQg_hwUqk_eglO_zd5rI=s64",
+        "me": false,
+        "permissionId": "04507704424731440977",
+        "emailAddress": "m.valadez@tjbpo.mx"
+    },
+    "size": "936409"
+}

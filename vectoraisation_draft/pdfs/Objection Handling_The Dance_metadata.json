@@ -1,0 +1,24 @@
+{
+    "id": "1rVzH7jE4pUma3FEVBxKSbebrhMPciY9s_SK7B3VOaOw",
+    "name": "Objection Handling/The Dance",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2022-08-17T01:05:07.379Z",
+    "modifiedTime": "2025-03-01T03:27:15.062Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Jeff Matthews",
+            "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjV8jQ0wcwuQSZRuB7HP8geZFuX9ULGJT8ILwpLU3_iz7b1OAA7e=s64",
+            "me": false,
+            "permissionId": "11258244062791807812",
+            "emailAddress": "j.matthews@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "c.sottomayor",
+        "me": false,
+        "permissionId": "03935114316229443517"
+    },
+    "size": "1016045"
+}

@@ -1,0 +1,24 @@
+{
+    "id": "196Az7wlc3nmB89DzDWV1wuZDVTc8iGwSaqAZY_i6C-w",
+    "name": "Address Changes and  Requirements",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2020-12-03T20:10:06.240Z",
+    "modifiedTime": "2023-01-27T18:21:38.358Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "j.alutaya",
+            "me": false,
+            "permissionId": "10535755694508462193",
+            "emailAddress": "j.alutaya@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Joey Owens",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjWjVxvfvwZd38Y-1GGr_z9wNRC3OTb0n5siUvEna5mCqXi4WlQV=s64",
+        "me": false,
+        "permissionId": "12793871727757852462",
+        "emailAddress": "j.owens@us.411locals.com"
+    }
+}
