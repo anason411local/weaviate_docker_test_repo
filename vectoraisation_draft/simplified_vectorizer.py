@@ -705,6 +705,81 @@ def enhance_text_for_embedding(text_content, doc_meta=None):
     
     return f"{instruction}{text_content}"
 
+def calculate_optimal_batch_size(documents):
+    """
+    Calculate optimal batch size based on number of documents, average document length,
+    and available system resources.
+    
+    Args:
+        documents: List of document dictionaries to process
+        
+    Returns:
+        int: Recommended batch size
+    """
+    # Base batch size calculations
+    doc_count = len(documents)
+    
+    # Calculate average document length
+    avg_length = 0
+    if documents:
+        total_length = sum(len(doc.get("text", "")) for doc in documents)
+        avg_length = total_length / doc_count
+    
+    # Adjust base batch size based on document count
+    if doc_count < 50:
+        base_batch = 5  # Small dataset
+    elif doc_count < 200:
+        base_batch = 10  # Medium dataset
+    else:
+        base_batch = 20  # Large dataset
+    
+    # Adjust further based on average document length
+    length_factor = 1.0
+    if avg_length > 5000:
+        length_factor = 0.5  # Very long documents
+    elif avg_length > 2000:
+        length_factor = 0.7  # Long documents
+    elif avg_length < 500:
+        length_factor = 1.5  # Short documents
+    
+    # Consider system resources - attempt to detect available memory
+    # This is an approximation and may not work on all systems
+    try:
+        import psutil
+        available_memory_gb = psutil.virtual_memory().available / (1024 * 1024 * 1024)
+        memory_factor = 1.0
+        
+        # Adjust batch size based on available memory
+        if available_memory_gb < 2:  # Less than 2GB available
+            memory_factor = 0.5
+        elif available_memory_gb > 8:  # More than 8GB available
+            memory_factor = 1.5
+            
+        print(f"System has {available_memory_gb:.1f} GB available memory, using memory factor: {memory_factor}")
+        
+    except ImportError:
+        # If psutil not available, skip memory-based adjustment
+        memory_factor = 1.0
+        print("psutil not available, skipping memory-based batch size adjustment")
+    
+    # Calculate final batch size (min 3, max 30)
+    batch_size = max(3, min(30, int(base_batch * length_factor * memory_factor)))
+    
+    print(f"Calculated optimal batch size: {batch_size} (based on {doc_count} documents with avg length {avg_length:.1f} chars)")
+    
+    # Allow user to override the batch size
+    try:
+        user_input = input(f"Use calculated batch size {batch_size}? Enter a different number to override, or press Enter to accept: ").strip()
+        if user_input and user_input.isdigit():
+            user_batch_size = int(user_input)
+            if user_batch_size > 0:
+                print(f"Using user-specified batch size: {user_batch_size}")
+                return user_batch_size
+    except (KeyboardInterrupt, EOFError):
+        # If user sends interrupt or EOF, just use calculated value
+        pass
+    
+    return batch_size
 
 def main():
     print("Starting PDF vectorization process...")
@@ -743,7 +818,9 @@ def main():
 
     print(f"\nEmbedding and importing {len(documents_to_process)} document chunks into Weaviate...")
     
-    batch_size = 10 # Adjust based on embedding model performance and Weaviate load
+    # Calculate optimal batch size dynamically instead of fixed size
+    batch_size = calculate_optimal_batch_size(documents_to_process)
+    
     success_count = 0
     error_count = 0
     retry_count = 0
@@ -830,6 +907,6 @@ def main():
 if __name__ == "__main__":
     print("--------------------------------------------------------------------------")
     print("Please ensure you have installed all required libraries:")
-    print("  pip install nltk Pillow langchain-text-splitters langchain-community sentence-transformers PyMuPDF python-dotenv requests fitz")
+    print("  pip install nltk Pillow langchain-text-splitters langchain-community sentence-transformers PyMuPDF python-dotenv requests fitz psutil")
     print("--------------------------------------------------------------------------\n")
     main()
