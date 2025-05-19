@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "/home/anasrh/repos/weaviate_docker_test_repo/dashboard_of_weaviate/new_dashboard.py", line 35, in <module>
-    import plotly.express as px
-ModuleNotFoundError: No module named 'plotly'

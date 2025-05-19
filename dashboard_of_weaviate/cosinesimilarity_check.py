@@ -37,6 +37,9 @@ WEAVIATE_URL = "http://localhost:8090"  # Changed from environment variable to d
 # WEAVIATE_API_KEY will be loaded from .env.
 WEAVIATE_API_KEY = os.getenv("WEAVIATE_API_KEY")
 
+# Collection name - updated to match self_host_simplified_vectoraizer.py
+COLLECTION_NAME = "Area_expansion_Dep_Anas"
+
 print(f"Attempting to connect to Weaviate at: {WEAVIATE_URL}")
 
 # Check if API key is set (only if needed)
@@ -60,14 +63,14 @@ def create_weaviate_headers():
     return headers
 
 def fetch_all_vectors(limit=10000):
-    """Fetch all vectors from the PDFDocuments collection."""
+    """Fetch all vectors from the collection."""
     headers = create_weaviate_headers()
     
     # GraphQL query to fetch vectors
     graphql_query = """
     {
       Get {
-        PDFDocuments(
+        %s(
           limit: %d
         ) {
           text
@@ -79,7 +82,7 @@ def fetch_all_vectors(limit=10000):
         }
       }
     }
-    """ % limit
+    """ % (COLLECTION_NAME, limit)
     
     try:
         response = requests.post(
@@ -94,7 +97,7 @@ def fetch_all_vectors(limit=10000):
                 print(f"GraphQL errors: {result['errors']}")
                 return []
                 
-            documents = result.get("data", {}).get("Get", {}).get("PDFDocuments", [])
+            documents = result.get("data", {}).get("Get", {}).get(COLLECTION_NAME, [])
             
             # Filter out documents without vectors
             documents_with_vectors = []

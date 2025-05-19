@@ -1,0 +1,26 @@
+{
+    "id": "1fcE_iRDr94HW1F4kqckZFAj1uvAJNgcEqYlHAiRcB9o",
+    "name": "Industry training .pptx",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2016-10-28T16:36:11.512Z",
+    "modifiedTime": "2024-10-08T18:33:53.913Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Jeff Matthews",
+            "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjV8jQ0wcwuQSZRuB7HP8geZFuX9ULGJT8ILwpLU3_iz7b1OAA7e=s64",
+            "me": false,
+            "permissionId": "11258244062791807812",
+            "emailAddress": "j.matthews@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Jeff Matthews",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjV8jQ0wcwuQSZRuB7HP8geZFuX9ULGJT8ILwpLU3_iz7b1OAA7e=s64",
+        "me": false,
+        "permissionId": "11258244062791807812",
+        "emailAddress": "j.matthews@us.411locals.com"
+    },
+    "size": "6893791"
+}

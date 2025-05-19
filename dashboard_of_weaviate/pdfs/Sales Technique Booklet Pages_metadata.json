@@ -1,0 +1,26 @@
+{
+    "id": "17H3G499w_9moAxGYbn9RPZAywiOGwQxJVRtJwseR89g",
+    "name": "Sales Technique Booklet Pages",
+    "mimeType": "application/vnd.google-apps.document",
+    "createdTime": "2016-05-10T16:57:39.755Z",
+    "modifiedTime": "2022-07-27T19:00:52.851Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Jeff Matthews",
+            "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjV8jQ0wcwuQSZRuB7HP8geZFuX9ULGJT8ILwpLU3_iz7b1OAA7e=s64",
+            "me": false,
+            "permissionId": "11258244062791807812",
+            "emailAddress": "j.matthews@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Jeff Matthews",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjV8jQ0wcwuQSZRuB7HP8geZFuX9ULGJT8ILwpLU3_iz7b1OAA7e=s64",
+        "me": false,
+        "permissionId": "11258244062791807812",
+        "emailAddress": "j.matthews@us.411locals.com"
+    },
+    "size": "4323952"
+}

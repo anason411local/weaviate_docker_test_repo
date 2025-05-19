@@ -1,0 +1,25 @@
+{
+    "id": "1YEhSqbiUblkKCdRT0gT1tl2tsPi7xX0JL639MHO20tE",
+    "name": "[WB] REMOTE LMS",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2021-01-03T19:27:46.559Z",
+    "modifiedTime": "2021-01-03T19:46:39.161Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Silviya Angelova",
+            "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjVop33ti5_LJm4hNbXV1x2iHa9jlEyEXnaCJmfLmnt_GIDR8mWg=s64",
+            "me": false,
+            "permissionId": "07463059280041955337",
+            "emailAddress": "s.angelova@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Silviya Angelova",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjVop33ti5_LJm4hNbXV1x2iHa9jlEyEXnaCJmfLmnt_GIDR8mWg=s64",
+        "me": false,
+        "permissionId": "07463059280041955337",
+        "emailAddress": "s.angelova@us.411locals.com"
+    }
+}

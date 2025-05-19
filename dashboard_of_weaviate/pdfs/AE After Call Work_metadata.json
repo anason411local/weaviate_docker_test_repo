@@ -1,0 +1,23 @@
+{
+    "id": "1Zguwi4l27mf-LyaWQW8g5Hs70AIk1iCuZXKFYyOQbzc",
+    "name": "AE After Call Work",
+    "mimeType": "application/vnd.google-apps.presentation",
+    "createdTime": "2021-01-20T16:53:51.733Z",
+    "modifiedTime": "2022-03-31T17:37:26.660Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "j.alutaya",
+            "me": false,
+            "permissionId": "10535755694508462193",
+            "emailAddress": "j.alutaya@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "j.alutaya",
+        "me": false,
+        "permissionId": "10535755694508462193",
+        "emailAddress": "j.alutaya@us.411locals.com"
+    }
+}

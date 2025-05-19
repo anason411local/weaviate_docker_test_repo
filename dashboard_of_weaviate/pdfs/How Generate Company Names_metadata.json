@@ -1,0 +1,25 @@
+{
+    "id": "1kdaK1oH4MiZd6QsiUYVoQDuvnD2E7NrtaFd2G-5dDsM",
+    "name": "How Generate Company Names",
+    "mimeType": "application/vnd.google-apps.document",
+    "createdTime": "2019-02-28T05:25:20.265Z",
+    "modifiedTime": "2019-02-28T05:25:44.791Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Georgi Genchev",
+            "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjW_rwxvKQvvCdGxo9OSx_3nF-1toyF2N57EDQH0jWRnbuXojJQ=s64",
+            "me": false,
+            "permissionId": "00908539304497540614",
+            "emailAddress": "g.genchev@us.411locals.com"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Georgi Genchev",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjW_rwxvKQvvCdGxo9OSx_3nF-1toyF2N57EDQH0jWRnbuXojJQ=s64",
+        "me": false,
+        "permissionId": "00908539304497540614",
+        "emailAddress": "g.genchev@us.411locals.com"
+    }
+}
