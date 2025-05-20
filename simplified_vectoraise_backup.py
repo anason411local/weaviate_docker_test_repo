@@ -15,7 +15,6 @@ import datetime
 import unicodedata
 import time
 import numpy as np
-import argparse
 
 # Attempt to import nltk and PIL, and set flags for their availability
 try:
@@ -85,7 +84,10 @@ model_kwargs = {
 encode_kwargs = {
     'normalize_embeddings': True,
     'batch_size': 8,
-    'show_progress_bar': True
+    'show_progress_bar': True,
+    # Advanced settings for better quality embeddings
+    'pooling_strategy': 'cls',  # Use CLS token pooling for optimal quality
+    'max_length': 1024  # Increase from default for more context
 }
 embedding_model = HuggingFaceBgeEmbeddings(
     model_name=model_name,
@@ -94,28 +96,37 @@ embedding_model = HuggingFaceBgeEmbeddings(
     cache_folder=None # Set a path here if you want to cache the model, e.g., "./model_cache"
 )
 
-# Text splitting parameters
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 300
+# Text splitting parameters - optimized for quality
+CHUNK_SIZE = 800  # Smaller chunk size for more focused embeddings
+CHUNK_OVERLAP = 200  # Significant overlap to maintain context
 
-# --- Cloud Similarity Calibration ---
-# These values control the adjustment of similarity scores to match cloud behavior
-APPLY_CLOUD_CALIBRATION = True  # Set to False to disable calibration
-SELF_HOST_MEAN = 0.52  # Typical self-hosted mean similarity score
-CLOUD_MEAN = 0.64      # Typical cloud mean similarity score
-SELF_HOST_STD = 0.07   # Typical self-hosted standard deviation
-CLOUD_STD = 0.07       # Typical cloud standard deviation
-# 
-# Why this is needed: Weaviate Cloud and self-hosted Weaviate instances calculate 
-# cosine similarity differently, resulting in cloud giving higher similarity scores 
-# (around ~0.64 mean) compared to self-hosted (~0.52 mean) for the same data.
-# 
-# This calibration subtly adjusts vector direction to achieve cloud-like similarity scores
-# without changing the relative ranking or quality of search results.
-# --- End of Cloud Similarity Calibration ---
+# Initialize enhanced text splitter
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=CHUNK_SIZE,
+    chunk_overlap=CHUNK_OVERLAP,
+    length_function=len,
+    # Optimized separators for semantic chunking in priority order
+    separators=[
+        "\n\n\n",  # Triple linebreak (highest priority)
+        "\n\n",    # Double linebreak
+        "\n",      # Single linebreak
+        ".",       # End of sentence
+        "!",       # Exclamation
+        "?",       # Question
+        ";",       # Semicolon 
+        ":",       # Colon
+        ",",       # Comma
+        " ",       # Space (lowest priority)
+        ""         # Character level (fallback)
+    ]
+)
+
+# Add near the top with other globals
+USE_HIERARCHICAL_EMBEDDINGS = True
+PARENT_EMBEDDING_WEIGHT = 0.15
 
 def clean_text(text):
-    """Clean and normalize text to improve embedding quality."""
+    """Enhanced text cleaning to improve embedding quality"""
     if not text:
         return ""
     cleaned = re.sub(r'\s+', ' ', text).strip()
@@ -133,6 +144,8 @@ def clean_text(text):
     cleaned = re.sub(r'["""]', '"', cleaned)
     cleaned = re.sub(r"['']", "'", cleaned)
     cleaned = unicodedata.normalize('NFKC', cleaned)
+    
+    # Advanced OCR error correction for better semantics
     ocr_fixes = [
         (r'l\b', 'i'), (r'\bII\b', 'H'), (r'\b0\b', 'O'), (r'rn\b', 'm'),
         (r'rnm\b', 'mm'), (r'\blJ\b', 'U'), (r'\bl\b', '1'), (r'\blo\b', '10'),
@@ -140,6 +153,8 @@ def clean_text(text):
     ]
     for old, new in ocr_fixes:
         cleaned = re.sub(old, new, cleaned)
+    
+    # Obfuscate emails and URLs for better semantic focus
     cleaned = re.sub(r'(https?:\/\/[^\s]+)', lambda m: m.group(1).replace('.', ' dot '), cleaned)
     pattern = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
     def email_replacer(match):
@@ -149,16 +164,39 @@ def clean_text(text):
 
     if NLTK_AVAILABLE: # Only use nltk if it was successfully imported
         try:
+            # Enhanced sentence normalization
             sentences = nltk.sent_tokenize(cleaned)
-            for i in range(len(sentences)):
-                if sentences[i] and sentences[i][0].islower():
-                    sentences[i] = sentences[i][0].upper() + sentences[i][1:]
-                if sentences[i] and sentences[i][-1] not in ['.', '!', '?']:
-                    sentences[i] += '.'
-            cleaned = ' '.join(sentences)
+            normalized_sentences = []
+            
+            for sentence in sentences:
+                if not sentence.strip():
+                    continue
+                # Fix capitalization for better semantics
+                if sentence and sentence[0].islower():
+                    sentence = sentence[0].upper() + sentence[1:]
+                # Ensure proper sentence endings
+                if sentence and sentence[-1] not in ['.', '!', '?']:
+                    sentence += '.'
+                    
+                normalized_sentences.append(sentence)
+                
+            cleaned = ' '.join(normalized_sentences)
+            
+            # Optional lemmatization for better semantic matching
+            if 'wordnet' in nltk.data.path:  # Check if WordNet is available
+                try:
+                    from nltk.stem import WordNetLemmatizer
+                    lemmatizer = WordNetLemmatizer()
+                    words = nltk.word_tokenize(cleaned)
+                    lemmatized_words = [lemmatizer.lemmatize(word) for word in words 
+                                        if len(word) > 1 or word.isalnum()]
+                    # Keep original but blend with lemmatized for better embedding
+                    cleaned = cleaned + " " + " ".join(lemmatized_words)
+                except:
+                    pass  # Fallback if lemmatization fails
+                    
         except Exception as e: # Catch potential errors during nltk processing
-            print(f"Warning: Error during NLTK sentence tokenization: {e}. Proceeding with un-tokenized text for this chunk.")
-            # cleaned remains as it was before attempting sentence tokenization
+            print(f"Warning: Error during NLTK processing: {e}. Proceeding with un-tokenized text for this chunk.")
 
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
     if len(cleaned) < 50:
@@ -551,82 +589,6 @@ def check_weaviate_connection():
         print(f"Details: {e}")
         return False
 
-def detect_calibration_status():
-    """Attempt to detect if vectors in the database are already calibrated."""
-    if not check_weaviate_connection():
-        return False, 0, 0
-        
-    print("Checking existing vectors for calibration status...")
-    headers = create_weaviate_headers()
-    
-    # Get a sample of vectors to analyze
-    sample_size = 100
-    graphql_query = f"""
-    {{
-      Get {{
-        {COLLECTION_NAME}(
-          limit: {sample_size}
-        ) {{
-          _additional {{
-            id
-            vector
-          }}
-        }}
-      }}
-    }}
-    """
-    
-    try:
-        response = requests.post(
-            f"{WEAVIATE_URL}/v1/graphql",
-            headers=headers,
-            json={"query": graphql_query}
-        )
-        
-        if response.status_code != 200:
-            print("Could not check vectors - continuing without calibration detection.")
-            return False, 0, 0
-            
-        result = response.json()
-        if "errors" in result:
-            print(f"GraphQL errors: {result['errors']}")
-            return False, 0, 0
-            
-        documents = result.get("data", {}).get("Get", {}).get(COLLECTION_NAME, [])
-        if not documents:
-            print("No existing vectors found.")
-            return False, 0, 0
-            
-        vectors = []
-        for doc in documents:
-            if "_additional" in doc and "vector" in doc["_additional"]:
-                vectors.append(np.array(doc["_additional"]["vector"]))
-                
-        if len(vectors) < 5:
-            return False, 0, 0
-            
-        # Calculate similarities to detect calibration
-        similarity_matrix = []
-        for i in range(min(20, len(vectors))):
-            for j in range(i+1, min(20, len(vectors))):
-                sim = np.dot(vectors[i], vectors[j])
-                similarity_matrix.append(sim)
-                
-        if not similarity_matrix:
-            return False, 0, 0
-            
-        mean_sim = np.mean(similarity_matrix)
-        print(f"Detected average similarity between vectors: {mean_sim:.4f}")
-        
-        # Check if vectors appear to be already calibrated
-        calibrated = abs(mean_sim - CLOUD_MEAN) < 0.05
-        uncalibrated = abs(mean_sim - SELF_HOST_MEAN) < 0.05
-        
-        return calibrated or uncalibrated, mean_sim, len(vectors)
-    except Exception as e:
-        print(f"Error checking calibration status: {e}")
-        return False, 0, 0
-
 def discover_json_fields():
     """
     Scan the pdfs directory for JSON files and extract potential schema fields with document_ prefix.
@@ -957,24 +919,39 @@ def create_weaviate_object(doc_properties, vector):
         return False
 
 def enhance_text_for_embedding(text_content, doc_meta=None):
-    if not text_content.strip(): return text_content # Return original if empty after strip
+    """Enhance text with context for optimal embedding quality."""
+    if not text_content.strip(): 
+        return text_content
     
-    # Basic context from metadata
+    # Extract context from metadata for semantic enrichment
     title = doc_meta.get("title", "") if doc_meta else ""
-    page = doc_meta.get("page", -1) if doc_meta else -1 # Use -1 to indicate if not available
+    author = doc_meta.get("author", "") if doc_meta else ""
+    subject = doc_meta.get("subject", "") if doc_meta else ""
+    keywords = doc_meta.get("keywords", "") if doc_meta else ""
     
-    # Instruction for retrieval tasks (common for BGE models)
+    # Optimized instruction prefix (BGE models respond well to this format)
     instruction = "Represent this document for retrieval: "
     
-    # Construct the text with instruction and minimal context
-    # Keeping it concise to avoid overly long input to embedding model
-    if title and page != -1:
-        # Example: "Represent this document for retrieval: Title: My Document, Page: 5. Content of the page..."
-        # Keep it very minimal to avoid diluting the core text too much.
-        # The main idea is the instruction.
-        return f"{instruction}{text_content}" # Decided to simplify, metadata is stored separately
+    # Build enhanced context parts
+    context_parts = []
     
-    return f"{instruction}{text_content}"
+    # Add key metadata if available (strengthens topic representation)
+    if title:
+        context_parts.append(f"Title: {title}")
+    if subject and len(subject) > 3:
+        context_parts.append(f"Subject: {subject}")
+    if keywords and len(keywords) > 3:
+        context_parts.append(f"Keywords: {keywords}")
+    
+    # Create context string with semantic delimiters
+    context_str = ""
+    if context_parts:
+        context_str = " | ".join(context_parts) + "\n\n"
+    
+    # Combine instruction, context and content optimally
+    enhanced_text = f"{instruction}{context_str}{text_content}"
+    
+    return enhanced_text
 
 def calculate_optimal_batch_size(documents):
     """
@@ -1052,98 +1029,85 @@ def calculate_optimal_batch_size(documents):
     
     return batch_size
 
-def normalize_vector(vector):
-    """Normalize a vector to unit length to ensure consistent cosine similarity behavior."""
-    vec_np = np.array(vector)
-    norm = np.linalg.norm(vec_np)
-    if norm > 0:
-        return (vec_np / norm).tolist()
-    return vector
-
-def check_vector_normalization(vector):
-    """Check if a vector is normalized (has unit length)."""
-    vec_np = np.array(vector)
-    magnitude = np.linalg.norm(vec_np)
-    return abs(magnitude - 1.0) < 0.01  # Allow for small floating point differences
-
-def cloud_calibrate_vector(vector):
-    """Apply cloud calibration adjustment to a vector to achieve higher similarity scores."""
-    if not APPLY_CLOUD_CALIBRATION:
-        return vector  # Skip calibration if disabled
+def create_document_level_embedding(source_docs, doc_title):
+    """Create a document-level embedding for hierarchical embeddings"""
+    if not USE_HIERARCHICAL_EMBEDDINGS:
+        return None
         
-    # Use a scaling transformation that preserves direction but adjusts similarity distribution
-    # This is a simplified version that works based on the observation that
-    # cloud vectors have similar overall distribution but different scaling
-    vec_np = np.array(vector)
+    # Create a representative document summary
+    summary_parts = []
     
-    # Apply calibration transformation
-    # This transformation preserves the vector direction but adjusts its scale
-    # to produce similarity scores matching cloud distribution
-    scaling_factor = CLOUD_MEAN / SELF_HOST_MEAN
+    # Add title
+    if doc_title:
+        summary_parts.append(f"Document: {doc_title}")
     
-    # Apply a small boost that affects cosine similarity
-    adjustment = (scaling_factor - 1.0) * 0.2
-    
-    # Create primary direction vector (a vector of all 1s, then normalized)
-    # This special direction will boost overall vector similarity
-    dim = len(vec_np)
-    primary_direction = np.ones(dim) / np.sqrt(dim)
-    
-    # Blend the vector with the primary direction
-    # This technique preserves relative relationships while shifting similarity scores
-    calibrated_vec = vec_np + (adjustment * primary_direction)
-    
-    # Re-normalize to ensure unit length
-    norm = np.linalg.norm(calibrated_vec)
-    if norm > 0:
-        calibrated_vec = calibrated_vec / norm
+    # Extract headings or first sentences from pages to create a summary
+    extracted_headings = []
+    for doc in source_docs[:min(5, len(source_docs))]:  # Use first 5 pages max
+        page_content = doc.page_content
+        sentences = page_content.split('. ')[:3]  # Get first 3 sentences
         
-    return calibrated_vec.tolist()
+        # Look for potential headings (short, capitalized text with no period)
+        for sentence in sentences:
+            if 10 < len(sentence) < 100 and not sentence.endswith('.'):
+                if any(c.isupper() for c in sentence):
+                    extracted_headings.append(sentence.strip())
+                    break
+    
+    # Add extracted headings
+    if extracted_headings:
+        summary_parts.append("Sections: " + " | ".join(extracted_headings[:5]))
+    
+    # Add first page intro
+    if source_docs:
+        first_page = source_docs[0].page_content
+        first_paragraph = first_page.split('\n\n')[0] if '\n\n' in first_page else first_page[:500]
+        summary_parts.append(first_paragraph)
+    
+    # Combine parts and limit length
+    document_summary = "\n\n".join(summary_parts)
+    if len(document_summary) > 1000:
+        document_summary = document_summary[:1000]
+    
+    # Create the embedding for the document summary
+    if document_summary:
+        try:
+            doc_text_for_embedding = enhance_text_for_embedding(document_summary)
+            doc_embedding = embedding_model.embed_documents([doc_text_for_embedding])[0]
+            return doc_embedding
+        except Exception as e:
+            print(f"Warning: Failed to create document-level embedding: {e}")
+    
+    return None
+
+def create_blended_hierarchical_embedding(chunk_embedding, doc_embedding):
+    """Create hierarchical embedding by blending chunk and document embeddings"""
+    if not USE_HIERARCHICAL_EMBEDDINGS or doc_embedding is None:
+        return chunk_embedding
+    
+    try:
+        # Convert to numpy arrays
+        chunk_vec = np.array(chunk_embedding)
+        doc_vec = np.array(doc_embedding)
+        
+        # Blend the embeddings with weighting
+        blended_vec = (1 - PARENT_EMBEDDING_WEIGHT) * chunk_vec + PARENT_EMBEDDING_WEIGHT * doc_vec
+        
+        # Renormalize to unit length
+        norm = np.linalg.norm(blended_vec)
+        if norm > 0:
+            return (blended_vec / norm).tolist()
+    except Exception as e:
+        print(f"Warning: Error in hierarchical embedding blend: {e}")
+    
+    return chunk_embedding
 
 def main():
-    # Global variables that will be modified
-    global APPLY_CLOUD_CALIBRATION, CLOUD_MEAN
-    
-    # Parse command line arguments for calibration options
-    parser = argparse.ArgumentParser(description="Process PDFs and store vector embeddings in Weaviate")
-    parser.add_argument("--disable-calibration", action="store_true", help="Disable cloud calibration of vectors")
-    parser.add_argument("--cloud-mean", type=float, default=CLOUD_MEAN, 
-                        help=f"Target cloud similarity mean (default: {CLOUD_MEAN})")
-    args = parser.parse_args()
-    
-    # Update calibration settings from arguments
-    if args.disable_calibration:
-        APPLY_CLOUD_CALIBRATION = False
-    CLOUD_MEAN = args.cloud_mean
-    
     print("Starting PDF vectorization process...")
     print(f"Using embedding model: {model_name}")
     print(f"Chunk size: {CHUNK_SIZE}, Overlap: {CHUNK_OVERLAP}")
-    
-    # New calibration status message
-    if APPLY_CLOUD_CALIBRATION:
-        print(f"Cloud calibration ENABLED - vectors will be adjusted to match Weaviate Cloud similarity scores")
-        print(f"Target similarity mean: {CLOUD_MEAN} (vs. self-hosted mean: {SELF_HOST_MEAN})")
-        
-        # Check for existing calibrated vectors
-        calibration_detected, mean_sim, count = detect_calibration_status()
-        if calibration_detected and count > 0:
-            if abs(mean_sim - CLOUD_MEAN) < 0.05:
-                print(f"⚠️  Your database contains {count} vectors that appear ALREADY CALIBRATED (mean similarity: {mean_sim:.4f})")
-                print(f"⚠️  Adding new calibrated vectors is appropriate.")
-            elif abs(mean_sim - SELF_HOST_MEAN) < 0.05:
-                print(f"⚠️  Your database contains {count} vectors that appear UNCALIBRATED (mean similarity: {mean_sim:.4f})")
-                print(f"⚠️  Adding calibrated vectors will create MIXED calibration in your database.")
-                proceed = input("Do you want to proceed with calibration? This will result in mixed calibration. (y/n): ")
-                if proceed.lower() != 'y':
-                    print("Disabling calibration to match existing vectors.")
-                    APPLY_CLOUD_CALIBRATION = False
-            else:
-                print(f"⚠️  Your database contains vectors with unusual calibration (mean similarity: {mean_sim:.4f})")
-                print(f"⚠️  This may indicate previous calibration attempts or mixed vector sources.")
-    else:
-        print("Cloud calibration DISABLED - vectors will use standard self-hosted similarity scores")
-        
+    print(f"Hierarchical embeddings: {'Enabled' if USE_HIERARCHICAL_EMBEDDINGS else 'Disabled'}")
+
     pdfs_directory = "pdfs"
     if not os.path.isdir(pdfs_directory):
         print(f"ERROR: PDFs directory '{pdfs_directory}' not found. Please create it and add PDF files.")
@@ -1166,127 +1130,138 @@ def main():
 
     # Load and process documents
     try:
-        documents_to_process = load_and_split_pdfs(pdfs_directory)
-        if not documents_to_process:
-            print("No document chunks to process after loading and splitting. Exiting.")
-            return
-    except Exception as e:
-        print(f"Error during document loading and processing: {e}")
-        return
-
-    print(f"\nEmbedding and importing {len(documents_to_process)} document chunks into Weaviate...")
-    
-    # Calculate optimal batch size dynamically instead of fixed size
-    batch_size = calculate_optimal_batch_size(documents_to_process)
-    
-    success_count = 0
-    error_count = 0
-    retry_count = 0
-    max_retries = 3
-    skipped_count = 0
-    normalized_count = 0
-
-    for i in range(0, len(documents_to_process), batch_size):
-        batch_docs_properties = documents_to_process[i : i + batch_size]
-        print(f"Processing batch {i//batch_size + 1} / { (len(documents_to_process) -1)//batch_size + 1 } ({len(batch_docs_properties)} documents)")
-
-        texts_to_embed = [enhance_text_for_embedding(doc_props["text"], doc_props) for doc_props in batch_docs_properties]
+        print("Loading and processing documents...")
+        # First, load raw documents grouped by source
+        loader = DirectoryLoader(pdfs_directory, glob="**/*.pdf", loader_cls=PyPDFLoader, show_progress=True)
+        raw_docs = loader.load()
         
-        # Retry logic for critical errors
-        for retry in range(max_retries):
-            if retry > 0:
-                print(f"  Retry attempt {retry}/{max_retries-1}...")
-                # Wait a bit before retry
-                time.sleep(2)
+        # Group documents by source
+        docs_by_source = {}
+        for doc in raw_docs:
+            source = doc.metadata.get("source", "unknown_source")
+            docs_by_source.setdefault(source, []).append(doc)
             
+        # Sort each source's documents by page number
+        for source, docs in docs_by_source.items():
+            docs.sort(key=lambda x: x.metadata.get("page", 0))
+        
+        print(f"Loaded {len(raw_docs)} pages from {len(docs_by_source)} documents")
+        
+        # Process each document with advanced chunking and hierarchical embeddings
+        all_chunks = []
+        doc_embeddings = {}  # Store document embeddings for hierarchical approach
+        
+        for source, source_docs in docs_by_source.items():
+            print(f"Processing {os.path.basename(source)}...")
+            
+            # Extract metadata
+            pdf_meta = extract_pdf_metadata(source)
+            json_meta = extract_json_metadata(source)
+            combined_meta = {**pdf_meta, **json_meta}
+            combined_meta["source"] = source
+            
+            # Create document-level embedding if using hierarchical approach
+            if USE_HIERARCHICAL_EMBEDDINGS:
+                doc_title = combined_meta.get("title", os.path.basename(source))
+                doc_embeddings[source] = create_document_level_embedding(source_docs, doc_title)
+            
+            # Combine all text with page markers
+            full_text = ""
+            for doc in source_docs:
+                page_num = doc.metadata.get("page", 0) + 1
+                full_text += f"\n\n[PAGE {page_num}]\n{doc.page_content}"
+            
+            # Split into semantic chunks
+            chunks = text_splitter.split_text(full_text)
+            
+            # Process each chunk
+            for chunk in chunks:
+                # Clean and prepare text
+                cleaned_text = clean_text(chunk)
+                if not cleaned_text or len(cleaned_text) < 100:  # Skip very short chunks
+                    continue
+                
+                # Extract page number if present
+                page_match = re.search(r"\[PAGE (\d+)\]", chunk)
+                page_num = int(page_match.group(1)) - 1 if page_match else 0
+                
+                # Prepare metadata for this chunk
+                chunk_meta = combined_meta.copy()
+                chunk_meta["page"] = page_num
+                
+                all_chunks.append({
+                    "text": cleaned_text,
+                    "metadata": chunk_meta,
+                    "source": source
+                })
+        
+        print(f"Created {len(all_chunks)} optimized chunks")
+        
+        # Calculate batch size
+        batch_size = calculate_optimal_batch_size(all_chunks)
+        print(f"Using batch size: {batch_size}")
+        
+        # Process chunks in batches
+        success_count = 0
+        error_count = 0
+        skipped_count = 0
+        hierarchical_count = 0
+        
+        for i in range(0, len(all_chunks), batch_size):
+            batch = all_chunks[i:i+batch_size]
+            print(f"Processing batch {i//batch_size + 1}/{(len(all_chunks)-1)//batch_size + 1} ({len(batch)} chunks)")
+            
+            # Prepare texts for embedding with enhanced context
+            texts_to_embed = [
+                enhance_text_for_embedding(chunk["text"], chunk["metadata"]) 
+                for chunk in batch
+            ]
+            
+            # Generate embeddings
             try:
-                print(f"  Generating embeddings for {len(texts_to_embed)} texts...")
+                print(f"  Generating {len(texts_to_embed)} embeddings...")
                 embeddings = embedding_model.embed_documents(texts_to_embed)
-                print(f"  Embeddings generated. Checking and ensuring vector normalization...")
                 
-                # Check and ensure all vectors are normalized
-                normalized_in_batch = 0
-                for j in range(len(embeddings)):
-                    if not check_vector_normalization(embeddings[j]):
-                        embeddings[j] = normalize_vector(embeddings[j])
-                        normalized_in_batch += 1
-                
-                normalized_count += normalized_in_batch
-                if normalized_in_batch > 0:
-                    print(f"  Normalized {normalized_in_batch} vectors in this batch")
-                
-                # Apply cloud calibration adjustment
-                if APPLY_CLOUD_CALIBRATION:
-                    print(f"  Applying cloud calibration to improve similarity scores...")
-                    for j in range(len(embeddings)):
-                        embeddings[j] = cloud_calibrate_vector(embeddings[j])
-                    print(f"  Calibration applied with target mean similarity of {CLOUD_MEAN}") 
-                
-                print(f"  Importing vectors to Weaviate...")
-
-                batch_success = 0
-                batch_skipped = 0
-                for doc_props, vector in zip(batch_docs_properties, embeddings):
-                    result = create_weaviate_object(doc_props, vector)
+                # Store chunks with their embeddings
+                for chunk_data, vector in zip(batch, embeddings):
+                    source = chunk_data["source"]
+                    
+                    # Apply hierarchical blending if available
+                    if USE_HIERARCHICAL_EMBEDDINGS and source in doc_embeddings and doc_embeddings[source] is not None:
+                        original_vector = vector
+                        vector = create_blended_hierarchical_embedding(vector, doc_embeddings[source])
+                        if vector != original_vector:
+                            hierarchical_count += 1
+                    
+                    # Create Weaviate object
+                    result = create_weaviate_object(chunk_data["metadata"], vector)
+                    
                     if result == True:
                         success_count += 1
-                        batch_success += 1
                     elif result == "SKIPPED":
-                        batch_skipped += 1
                         skipped_count += 1
-                        # Don't increment error count for skipped objects
                     else:
                         error_count += 1
                 
-                print(f"  Batch import finished. Batch success: {batch_success}/{len(batch_docs_properties)}, "
-                      f"Skipped: {batch_skipped}, Total success: {success_count}/{success_count+error_count}")
+                print(f"  Batch complete: {success_count}/{len(all_chunks)} stored so far")
                 
-                # If we had any success in this batch or skipped objects, break retry loop
-                if batch_success > 0 or batch_skipped > 0:
-                    break
-                
-                # If complete failure and we have retries left, we'll retry
-                if batch_success == 0 and retry < max_retries - 1:
-                    retry_count += 1
-                    print("  Complete batch failure, will retry...")
-                    continue
-                    
-            except requests.exceptions.RequestException as e:
-                print(f"❌ Connection error during batch processing: {e}")
-                if retry < max_retries - 1:
-                    retry_count += 1
-                    print("  Will retry after connection error...")
-                    continue
-                else:
-                    print("  Max retries reached, skipping this batch.")
-                    error_count += len(batch_docs_properties)
             except Exception as e:
                 print(f"❌ Error processing batch: {e}")
-                if retry < max_retries - 1:
-                    retry_count += 1
-                    print("  Will retry after general error...")
-                    continue
-                else:
-                    print("  Max retries reached, skipping this batch.")
-                    error_count += len(batch_docs_properties)
-
-    print(f"\n🏁 Completed! Successfully imported {success_count} / {len(documents_to_process)} document chunks.")
-    print(f"   Normalized vectors: {normalized_count}")
-    if APPLY_CLOUD_CALIBRATION:
-        print(f"   Cloud calibration: APPLIED (target mean: {CLOUD_MEAN})")
-        print(f"   Expected similarity boost: ~{((CLOUD_MEAN/SELF_HOST_MEAN - 1)*100):.1f}%")
-        print(f"   Your vectors should now have similarity scores similar to Weaviate Cloud!")
-    print(f"   Skipped: {skipped_count} (already existed in database)")
-    print(f"   Failed: {error_count}, Retries attempted: {retry_count}")
-    print(f"   Total processed: {success_count + skipped_count + error_count} / {len(documents_to_process)}")
-    
-    if success_count == 0 and skipped_count == 0:
-        print("\n⚠️ No documents were successfully imported. Please check the errors above.")
-        print("   Common issues:")
-        print("   - Schema mismatch between script and Weaviate")
-        print("   - Connection problems to Weaviate")
-        print("   - Data format issues")
-        print("\n   Try running: curl http://localhost:8090/v1/.well-known/ready to verify Weaviate is working.")
+                error_count += len(batch)
+        
+        # Print final stats
+        print("\n=== Vectorization Complete ===")
+        print(f"Successfully stored: {success_count} chunks")
+        print(f"Skipped (already existed): {skipped_count} chunks")
+        print(f"Failed: {error_count} chunks")
+        print(f"Total processed: {success_count + skipped_count + error_count} chunks")
+        print(f"Using hierarchical embeddings: {USE_HIERARCHICAL_EMBEDDINGS}")
+        if USE_HIERARCHICAL_EMBEDDINGS:
+            print(f"Hierarchical enhancement applied: {hierarchical_count} chunks")
+        
+    except Exception as e:
+        print(f"Error during document processing: {e}")
+        return
 
 if __name__ == "__main__":
     print("--------------------------------------------------------------------------")
