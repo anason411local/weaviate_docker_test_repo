@@ -36,15 +36,15 @@ COLLECTION_NAME = "Area_expansion_Dep_Anas_V3"
 RECREATE_COLLECTION = True
 
 # Settings for improved vector quality
-CHUNK_SIZE = 512  # Smaller chunks for better semantic focus
-CHUNK_OVERLAP = 256  # Increased overlap for better context continuity
+CHUNK_SIZE = 800  # Smaller chunks for better semantic focus
+CHUNK_OVERLAP = 160  # Increased overlap for better context continuity
 USE_HIERARCHICAL_EMBEDDINGS = True  # Blend document level context with chunks
-HIERARCHICAL_WEIGHT = 0.25  # Increased weight for document-level context
+HIERARCHICAL_WEIGHT = 0.20  # Increased weight for document-level context
 VERBOSE_MODE = True  # Show detailed output
 
 # Parallelization settings
 NUM_PROCESSES = max(1, multiprocessing.cpu_count() - 1)  # Leave one CPU for system
-BATCH_SIZE = 16  # Increased batch size for faster processing
+BATCH_SIZE = 50  # Increased batch size for faster processing
 
 # ----- Initialize required libraries -----
 # Try to import optional libraries
@@ -82,9 +82,9 @@ model_name = "BAAI/bge-m3"
 model_kwargs = {'device': 'cpu', 'trust_remote_code': True}
 encode_kwargs = {
     'normalize_embeddings': True,
-    'batch_size': 16,  # Increased for better throughput
+    'batch_size': 50,  # Increased for better throughput
     'pooling_strategy': 'weighted_mean',  # Better quality than cls for BGE-M3
-    'max_length': 1536,  # Increased context window
+    'max_length': 8192,  # Increased context window
     'query_instruction_template': "Represent this text accurately for retrieval: {query}"  # Explicit instruction
 }
 
@@ -659,7 +659,7 @@ def process_documents():
     print(f"Created {len(all_chunks)} optimized chunks")
     
     # Process in batches
-    batch_size = 10  # Small batches for better handling
+    batch_size = 800  # Small batches for better handling
     success_count = 0
     skip_count = 0
     error_count = 0
