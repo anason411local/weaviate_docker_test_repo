@@ -11,7 +11,7 @@ from io import BytesIO
 from pathlib import Path
 from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
+from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader, TextLoader
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 import time
 import datetime
@@ -41,6 +41,10 @@ CHUNK_OVERLAP = 160  # Increased overlap for better context continuity
 USE_HIERARCHICAL_EMBEDDINGS = True  # Blend document level context with chunks
 HIERARCHICAL_WEIGHT = 0.20  # Increased weight for document-level context
 VERBOSE_MODE = True  # Show detailed output
+
+# Directory settings
+PDF_DIR = "pdfs"  # Directory containing PDF files
+TRANSCRIPT_DIR = "transcripts"  # Directory containing transcript files
 
 # Parallelization settings
 NUM_PROCESSES = max(1, multiprocessing.cpu_count() - 1)  # Leave one CPU for system
@@ -431,29 +435,63 @@ def setup_weaviate_collection():
         "class": collection_name,
         "vectorizer": "none",  # We provide vectors manually
         "properties": [
+            # Common properties
             {"name": "text", "dataType": ["text"]},
             {"name": "source", "dataType": ["text"]},
             {"name": "filename", "dataType": ["text"]},
             {"name": "folder", "dataType": ["text"]},
-            {"name": "page", "dataType": ["int"]},
             {"name": "title", "dataType": ["text"]},
+            {"name": "embedding_model", "dataType": ["text"]},
+            {"name": "hierarchical_embedding", "dataType": ["boolean"]},
+            {"name": "embedding_enhanced", "dataType": ["boolean"]},
+            {"name": "chunk_size", "dataType": ["int"]},
+            {"name": "chunk_overlap", "dataType": ["int"]},
+            {"name": "file_size", "dataType": ["int"]},
+            
+            # PDF specific properties
+            {"name": "page", "dataType": ["int"]},
             {"name": "author", "dataType": ["text"]},
             {"name": "subject", "dataType": ["text"]},
             {"name": "keywords", "dataType": ["text"]},
             {"name": "creation_date", "dataType": ["text"]},
             {"name": "modification_date", "dataType": ["text"]},
             {"name": "page_count", "dataType": ["int"]},
-            {"name": "file_size", "dataType": ["int"]},
             {"name": "has_images", "dataType": ["boolean"]},
             {"name": "image_count", "dataType": ["int"]},
             {"name": "has_toc", "dataType": ["boolean"]},
             {"name": "has_links", "dataType": ["boolean"]},
             {"name": "has_forms", "dataType": ["boolean"]},
-            {"name": "embedding_model", "dataType": ["text"]},
-            {"name": "hierarchical_embedding", "dataType": ["boolean"]},
-            {"name": "embedding_enhanced", "dataType": ["boolean"]},
-            {"name": "chunk_size", "dataType": ["int"]},
-            {"name": "chunk_overlap", "dataType": ["int"]}
+            
+            # Transcript specific properties
+            {"name": "content_type", "dataType": ["text"]},
+            {"name": "source_type", "dataType": ["text"]},
+            {"name": "speaker", "dataType": ["text"]},
+            {"name": "speakers", "dataType": ["text"]},
+            {"name": "duration", "dataType": ["text"]},
+            {"name": "date_recorded", "dataType": ["text"]},
+            {"name": "language", "dataType": ["text"]},
+            {"name": "word_count", "dataType": ["int"]},
+            {"name": "confidence_score", "dataType": ["number"]},
+            {"name": "segment", "dataType": ["int"]},
+            
+            # Enhanced properties for transcripts
+            {"name": "platform", "dataType": ["text"]},
+            {"name": "version", "dataType": ["text"]},
+            {"name": "transcript_source", "dataType": ["text"]},
+            {"name": "transcript_quality", "dataType": ["text"]},
+            {"name": "transcript_type", "dataType": ["text"]},
+            {"name": "event_type", "dataType": ["text"]},
+            {"name": "participants", "dataType": ["text"]},
+            {"name": "main_topics", "dataType": ["text"]},
+            {"name": "extracted_keywords", "dataType": ["text"]},
+            {"name": "transcript_complete", "dataType": ["boolean"]},
+            
+            # Enhanced metadata for all content
+            {"name": "processed_date", "dataType": ["text"]},
+            {"name": "last_updated", "dataType": ["text"]},
+            {"name": "content_category", "dataType": ["text"]},
+            {"name": "content_tags", "dataType": ["text[]"]},
+            {"name": "document_id", "dataType": ["text"]}
         ]
     }
     
@@ -582,7 +620,533 @@ def store_embedding(properties, vector):
         print(f"Error in Weaviate request: {e}")
         return False
 
-# ----- Main Process -----
+def extract_transcript_metadata(transcript_path):
+    """Extract metadata from transcript files"""
+    default_meta = {
+        "title": "", "speaker": "", "duration": "", "date_recorded": "",
+        "language": "", "content_type": "transcript", "source_type": "",
+        "file_size": 0, "word_count": 0, "confidence_score": 0.0
+    }
+    
+    if not os.path.exists(transcript_path):
+        return default_meta, ""
+    
+    try:
+        filename = os.path.basename(transcript_path)
+        filepath = os.path.dirname(transcript_path)
+        relative_path = os.path.relpath(filepath, TRANSCRIPT_DIR) if os.path.commonpath([filepath, TRANSCRIPT_DIR]) == TRANSCRIPT_DIR else ""
+        
+        metadata = default_meta.copy()
+        metadata.update({
+            "title": os.path.splitext(filename)[0],
+            "file_size": os.path.getsize(transcript_path),
+            "source_type": "audio" if "audio" in relative_path.lower() else 
+                          "video" if "video" in relative_path.lower() else "unknown",
+            "folder": relative_path
+        })
+        
+        # Try to extract file format from filename
+        if "_" in filename:
+            parts = filename.split("_")
+            for part in parts:
+                if part.lower() in ["mp3", "mp4", "wav", "avi", "mov"]:
+                    metadata["source_type"] = "audio" if part.lower() in ["mp3", "wav"] else "video"
+                    break
+        
+        # Try to extract metadata from the file content
+        with open(transcript_path, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
+        
+        # Skip files with specific "no transcript" markers
+        no_transcript_markers = [
+            "No transcript generated or found",
+            "No transcript available",
+            "Transcript unavailable",
+            "Failed to generate transcript"
+        ]
+        
+        for marker in no_transcript_markers:
+            if marker in content:
+                print(f"Skipping {transcript_path}: No transcript content available")
+                return metadata, ""
+        
+        # Handle empty or nearly empty files
+        if len(content.strip()) < 20:
+            print(f"Skipping {transcript_path}: Insufficient content (too short)")
+            return metadata, ""
+            
+        # Look for metadata sections at the beginning of the file
+        # Common format: Key: Value
+        lines = content.split('\n')
+        in_metadata_section = True
+        metadata_lines = []
+        content_start_line = 0
+        
+        # First pass: look for standard metadata format (Key: Value)
+        for i, line in enumerate(lines[:min(30, len(lines))]):  # Check first 30 lines for metadata
+            line = line.strip()
+            if not line:
+                if metadata_lines and not any(metadata_lines[-1].strip() == ''):
+                    in_metadata_section = False
+                continue
+                
+            if in_metadata_section:
+                if ':' in line:
+                    metadata_lines.append(line)
+                    content_start_line = i + 1
+                else:
+                    # If we see a line without a colon after metadata, we're probably in content now
+                    if metadata_lines:
+                        in_metadata_section = False
+            else:
+                break
+        
+        # Process metadata lines
+        for line in metadata_lines:
+            parts = line.split(':', 1)
+            if len(parts) == 2:
+                key = parts[0].strip().lower().replace(' ', '_')
+                value = parts[1].strip()
+                
+                # Map common metadata fields
+                if key in ['title', 'speaker', 'speakers', 'duration', 'language']:
+                    metadata[key] = value
+                elif key in ['date', 'recorded', 'date_recorded', 'recording_date']:
+                    metadata['date_recorded'] = value
+                elif key in ['confidence', 'confidence_score']:
+                    try:
+                        metadata['confidence_score'] = float(value.rstrip('%')) / 100.0
+                    except:
+                        pass
+                elif key not in ['content', 'transcript']:  # Skip content markers
+                    metadata[f"transcript_{key}"] = value
+        
+        # Second pass: try to extract metadata from content if none found
+        if not any(k in metadata for k in ['speaker', 'speakers', 'duration', 'date_recorded']):
+            # Try to find speaker pattern at the beginning of lines
+            speaker_pattern = r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*:'
+            speakers = set()
+            
+            for line in lines[:min(100, len(lines))]:
+                speaker_match = re.search(speaker_pattern, line)
+                if speaker_match:
+                    speaker = speaker_match.group(1)
+                    if len(speaker) > 2 and len(speaker) < 30:
+                        speakers.add(speaker)
+            
+            if speakers:
+                metadata['speakers'] = ", ".join(speakers)
+            
+            # Try to find duration pattern
+            duration_pattern = r'(Duration|Length|Time):\s*(\d+:?\d+:?\d*)'
+            for line in lines[:min(30, len(lines))]:
+                duration_match = re.search(duration_pattern, line, re.IGNORECASE)
+                if duration_match:
+                    metadata['duration'] = duration_match.group(2)
+                    break
+        
+        # Try to extract transcript type
+        transcript_types = ["automatic", "manual", "human", "ai", "machine", "auto-generated"]
+        for t_type in transcript_types:
+            if t_type in content.lower():
+                metadata["transcript_type"] = t_type
+                break
+        
+        # Calculate word count from content
+        content_text = '\n'.join(lines[content_start_line:])
+        metadata['word_count'] = len(content_text.split())
+        
+        # Extract platform info from filename
+        if "_youtube_" in filename.lower():
+            metadata["platform"] = "YouTube"
+        elif "_gdrive_" in filename.lower():
+            metadata["platform"] = "Google Drive"
+        elif "zoom" in filename.lower() or "zoom" in content.lower():
+            metadata["platform"] = "Zoom"
+        
+        # Extract additional metadata from filename
+        file_parts = filename.split('_')
+        if len(file_parts) > 1:
+            # Look for version information
+            version_pattern = r'version\s*(\d+)'
+            for part in file_parts:
+                version_match = re.search(version_pattern, part, re.IGNORECASE)
+                if version_match:
+                    metadata["version"] = f"Version {version_match.group(1)}"
+                    break
+            
+            # Try to identify if it's a training video or other type
+            content_categories = {
+                "training": ["training", "tutorial", "guide", "how-to", "lesson", "course"],
+                "presentation": ["presentation", "webinar", "seminar", "conference"],
+                "interview": ["interview", "conversation", "discussion", "dialogue"],
+                "podcast": ["podcast", "radio", "broadcast"]
+            }
+            
+            # Check filename and first part of content for category hints
+            text_to_check = (filename + " " + content[:min(1000, len(content))]).lower()
+            
+            for category, keywords in content_categories.items():
+                for keyword in keywords:
+                    if keyword in text_to_check:
+                        metadata["content_category"] = category
+                        break
+                if "content_category" in metadata:
+                    break
+        
+        # Mark transcript as complete if it seems to have a conclusion
+        conclusion_markers = ["conclusion", "thank you", "thanks for watching", "the end", "goodbye", "bye"]
+        last_paragraph = content[-min(500, len(content)):].lower()
+        metadata["transcript_complete"] = any(marker in last_paragraph for marker in conclusion_markers)
+        
+        return metadata, content_text
+        
+    except Exception as e:
+        print(f"Error extracting transcript metadata: {e}")
+        return default_meta, ""
+
+def clean_transcript_text(text):
+    """Clean and format transcript text for better embeddings"""
+    if not text or not isinstance(text, str):
+        return ""
+    
+    # Check for empty or nearly empty content
+    text = text.strip()
+    if len(text) < 10:
+        return ""
+    
+    # Replace common encoding issues
+    text = text.replace("\u2019", "'")  # Replace right single quotation mark
+    text = text.replace("\u201c", '"')  # Replace left double quotation mark
+    text = text.replace("\u201d", '"')  # Replace right double quotation mark
+    text = text.replace("\u2026", "...") # Replace ellipsis
+    text = text.replace("\u2013", "-")  # Replace en dash
+    text = text.replace("\u2014", "-")  # Replace em dash
+    
+    # Normalize whitespace initially but preserve paragraph breaks
+    text = re.sub(r'[\t ]+', ' ', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)  # Preserve paragraph breaks
+    
+    # Extract and store speaker information before removing it
+    speaker_pattern = r'(^|\n)([A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)?)\s*:'
+    speakers = set()
+    for match in re.finditer(speaker_pattern, text):
+        speaker = match.group(2)
+        if speaker and speaker.strip() and not speaker.strip().isdigit():
+            speakers.add(speaker.strip())
+    
+    # Remove timestamp patterns often found in transcripts
+    timestamp_patterns = [
+        r'\[\d{1,2}:\d{2}(:\d{2})?\]',
+        r'\(\d{1,2}:\d{2}(:\d{2})?\)',
+        r'\d{1,2}:\d{2}(:\d{2})?\s*-->\s*\d{1,2}:\d{2}(:\d{2})?',
+        r'^\d{1,2}:\d{2}(:\d{2})?\s',
+        r'\d{1,2}:\d{2}(:\d{2})?-\d{1,2}:\d{2}(:\d{2})?',  # Range format
+        r'\[\d+:\d+\]',  # Simplified timestamp
+        r'\[\d+\]'       # Numbered marker
+    ]
+    
+    # Process line by line to handle timestamps while preserving structure
+    lines = text.split('\n')
+    cleaned_lines = []
+    
+    for line in lines:
+        # Skip lines that are just timestamps or empty
+        if not line.strip() or re.match(r'^\s*\d{1,2}:\d{2}(:\d{2})?\s*$', line):
+            continue
+            
+        # Remove timestamps from this line
+        cleaned_line = line
+        for pattern in timestamp_patterns:
+            cleaned_line = re.sub(pattern, '', cleaned_line)
+            
+        # Remove speaker labels but mark them as paragraph breaks
+        cleaned_line = re.sub(speaker_pattern, '\n', cleaned_line)
+        
+        # Skip if line became empty after cleaning
+        if cleaned_line.strip():
+            cleaned_lines.append(cleaned_line.strip())
+    
+    # Combine lines with proper spacing
+    cleaned = ' '.join(cleaned_lines)
+    
+    # Fix common transcript artifacts
+    cleaned = re.sub(r'\.{3,}', '... ', cleaned)  # Fix multiple periods
+    cleaned = re.sub(r'\s+', ' ', cleaned)        # Fix spacing
+    
+    # Fix common transcript issues
+    cleaned = re.sub(r'(\w)- (\w)', r'\1\2', cleaned)  # Fix hyphenated words split across lines
+    
+    # Remove markers for inaudible content but preserve meaning
+    inaudible_patterns = [
+        r'\(inaudible\)',
+        r'\(unintelligible\)',
+        r'\(indiscernible\)',
+        r'\(unclear\)',
+        r'\(\?\)'
+    ]
+    
+    for pattern in inaudible_patterns:
+        cleaned = re.sub(pattern, ' [unclear] ', cleaned)
+    
+    # Clean up special markers
+    cleaned = re.sub(r'\[unclear\]\s+\[unclear\]', ' [unclear] ', cleaned)
+    
+    # Apply unicode normalization
+    cleaned = unicodedata.normalize('NFKC', cleaned)
+    
+    # Apply NLTK processing if available
+    if NLTK_AVAILABLE:
+        try:
+            # Tokenize into sentences
+            sentences = nltk.sent_tokenize(cleaned)
+            normalized_sentences = []
+            
+            for sentence in sentences:
+                if not sentence.strip():
+                    continue
+                
+                # Fix capitalization
+                if sentence and sentence[0].islower():
+                    sentence = sentence[0].upper() + sentence[1:]
+                
+                # Ensure sentences end with punctuation
+                if sentence and sentence[-1] not in ['.', '!', '?']:
+                    sentence += '.'
+                
+                normalized_sentences.append(sentence)
+            
+            cleaned = ' '.join(normalized_sentences)
+        except Exception as e:
+            # If NLTK processing fails, just continue with the basic cleaned text
+            pass
+    
+    # Final cleaning
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    
+    # For very short content, be more permissive
+    if len(cleaned) < 50 and len(text) > 100:
+        # If we lost too much content in cleaning, use a more basic cleaning
+        basic_cleaned = re.sub(r'\s+', ' ', text).strip()
+        return basic_cleaned
+    
+    return cleaned
+
+def enhance_transcript_for_embedding(text, metadata=None):
+    """Prepare transcript text for optimal embeddings with enhanced instructions"""
+    if not text:
+        return text
+    
+    # Extract context from metadata
+    title = metadata.get("title", "") if metadata else ""
+    speaker = metadata.get("speaker", "") if metadata else ""
+    speakers = metadata.get("speakers", speaker) if metadata else speaker
+    duration = metadata.get("duration", "") if metadata else ""
+    date_recorded = metadata.get("date_recorded", "") if metadata else ""
+    language = metadata.get("language", "") if metadata else ""
+    source_type = metadata.get("source_type", "") if metadata else ""
+    platform = metadata.get("platform", "") if metadata else ""
+    version = metadata.get("version", "") if metadata else ""
+    word_count = metadata.get("word_count", 0) if metadata else 0
+    
+    # Add current timestamp for processing date if not present
+    processed_date = metadata.get("processed_date", "") if metadata else ""
+    if not processed_date:
+        processed_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if metadata:
+            metadata["processed_date"] = processed_date
+    
+    # Try to extract main topics and keywords if not present
+    if metadata and not metadata.get("main_topics") and text and len(text) > 100:
+        try:
+            # Simple keyword extraction - take most frequent words after removing stopwords
+            if NLTK_AVAILABLE:
+                words = [word.lower() for word in nltk.word_tokenize(text) 
+                         if word.isalpha() and word.lower() not in STOPWORDS and len(word) > 3]
+                
+                # Get frequency distribution
+                freq_dist = nltk.FreqDist(words)
+                keywords = [word for word, _ in freq_dist.most_common(10)]
+                
+                if keywords:
+                    metadata["extracted_keywords"] = ", ".join(keywords)
+                    
+                    # Try to determine main topics from keywords
+                    if len(keywords) >= 3:
+                        metadata["main_topics"] = ", ".join(keywords[:3])
+        except:
+            pass
+    
+    # Try to infer transcript quality if not present
+    if metadata and not metadata.get("transcript_quality") and text:
+        # Check for signs of poor quality
+        poor_quality_markers = ["inaudible", "unintelligible", "(?)"]
+        quality_score = 100
+        
+        for marker in poor_quality_markers:
+            if marker in text.lower():
+                quality_score -= 20
+        
+        # Check for complete sentences
+        sentence_endings = re.findall(r'[.!?]', text)
+        if len(sentence_endings) < 5 and len(text) > 200:
+            quality_score -= 20
+        
+        if quality_score > 80:
+            metadata["transcript_quality"] = "high"
+        elif quality_score > 50:
+            metadata["transcript_quality"] = "medium"
+        else:
+            metadata["transcript_quality"] = "low"
+    
+    # Optimize for embedding instruction
+    instruction = "Represent this transcript accurately with high-quality semantic content for retrieval: "
+    
+    # Build rich context string with semantic boosting
+    context_parts = []
+    if title:
+        context_parts.append(f"Title: {title}")
+        # Add title twice for semantic emphasis
+        context_parts.append(f"Transcript: {title}")
+    if speakers:
+        context_parts.append(f"Speakers: {speakers}")
+    if source_type:
+        context_parts.append(f"Source Type: {source_type}")
+    if platform:
+        context_parts.append(f"Platform: {platform}")
+    if duration:
+        context_parts.append(f"Duration: {duration}")
+    if date_recorded:
+        context_parts.append(f"Recorded: {date_recorded}")
+    if language:
+        context_parts.append(f"Language: {language}")
+    if version:
+        context_parts.append(f"Version: {version}")
+    if metadata and metadata.get("main_topics"):
+        context_parts.append(f"Topics: {metadata.get('main_topics')}")
+    if metadata and metadata.get("extracted_keywords"):
+        context_parts.append(f"Keywords: {metadata.get('extracted_keywords')}")
+    if metadata and metadata.get("transcript_quality"):
+        context_parts.append(f"Quality: {metadata.get('transcript_quality')}")
+    
+    # Add semantic focus markers
+    context_parts.append(f"Content Type: Transcript")
+    if source_type:
+        context_parts.append(f"Media Type: {source_type.capitalize()}")
+    context_parts.append(f"Importance: High")
+    
+    context_str = ""
+    if context_parts:
+        context_str = " | ".join(context_parts) + "\n\n"
+    
+    # Combine for final embedding text with semantic emphasis
+    enhanced_text = f"{instruction}{context_str}{text}"
+    
+    # Add trailing emphasis for recency bias in transformer models
+    enhanced_text += "\n\nThis transcript contains important information for accurate retrieval and similarity matching."
+    
+    return enhanced_text
+
+def process_transcript_files():
+    """Process transcript files and generate embeddings"""
+    print("\nProcessing transcript files...")
+    transcript_dir = TRANSCRIPT_DIR
+    
+    if not os.path.exists(transcript_dir):
+        print(f"Error: Transcripts directory '{transcript_dir}' not found")
+        return [], {}
+    
+    # Find all .txt files in transcript directory and subdirectories
+    all_transcript_files = []
+    for root, _, files in os.walk(transcript_dir):
+        for file in files:
+            if file.lower().endswith('.txt'):
+                all_transcript_files.append(os.path.join(root, file))
+    
+    if not all_transcript_files:
+        print("No transcript files found")
+        return [], {}
+    
+    print(f"Found {len(all_transcript_files)} transcript files")
+    
+    # Process each transcript file
+    all_chunks = []
+    doc_embeddings = {}
+    
+    for transcript_file in tqdm(all_transcript_files, desc="Processing transcripts"):
+        try:
+            # Extract metadata and content
+            metadata, content = extract_transcript_metadata(transcript_file)
+            
+            # Skip if explicitly marked as having no transcript
+            if not content and "no transcript" in str(metadata.get("title", "")).lower():
+                continue
+                
+            # Lower the minimum content threshold to capture more transcripts
+            if not content or len(content.strip()) < 20:  # Only skip if truly empty or too short
+                print(f"Skipping {transcript_file}: Insufficient content")
+                continue
+            
+            # Create document embedding for hierarchical approach
+            if USE_HIERARCHICAL_EMBEDDINGS:
+                doc_title = metadata.get("title", os.path.basename(transcript_file))
+                # Use the first part of content (or all if short)
+                doc_text = enhance_transcript_for_embedding(content[:min(len(content), 1000)], metadata)
+                try:
+                    doc_embeddings[transcript_file] = embedding_model.embed_query(doc_text)
+                except Exception as e:
+                    print(f"Error creating document embedding: {e}")
+            
+            # Clean content
+            cleaned_text = clean_transcript_text(content)
+            
+            # Process even if cleaning removed a lot of content
+            if not cleaned_text or len(cleaned_text) < 50:
+                # If cleaning removed too much, use original with basic cleaning
+                cleaned_text = re.sub(r'\s+', ' ', content).strip()
+                if len(cleaned_text) < 20:
+                    continue
+            
+            # Split into chunks - with handling for short content
+            if len(cleaned_text) < CHUNK_SIZE/2:
+                # For short texts, don't split
+                text_chunks = [cleaned_text]
+            else:
+                text_chunks = text_splitter.split_text(cleaned_text)
+            
+            if not text_chunks:
+                # If splitting produced no chunks, use the whole text as one chunk
+                if len(cleaned_text) > 20:
+                    text_chunks = [cleaned_text]
+                else:
+                    continue
+            
+            # Process each chunk
+            for i, chunk_text in enumerate(text_chunks):
+                # Be more lenient with chunk size for transcripts
+                if not chunk_text or len(chunk_text) < 20:
+                    continue
+                
+                # Create chunk metadata
+                chunk_meta = metadata.copy()
+                chunk_meta["text"] = chunk_text
+                chunk_meta["source"] = transcript_file
+                chunk_meta["segment"] = i
+                chunk_meta["embedding_model"] = model_name
+                chunk_meta["hierarchical_embedding"] = USE_HIERARCHICAL_EMBEDDINGS
+                chunk_meta["embedding_enhanced"] = True
+                chunk_meta["chunk_size"] = CHUNK_SIZE
+                chunk_meta["chunk_overlap"] = CHUNK_OVERLAP
+                
+                all_chunks.append({"metadata": chunk_meta, "source": transcript_file})
+        
+        except Exception as e:
+            print(f"Error processing transcript {transcript_file}: {e}")
+            continue  # Continue with next file even if this one fails
+    
+    print(f"Created {len(all_chunks)} chunks from transcript files")
+    return all_chunks, doc_embeddings
+
 def process_documents():
     """Process all documents with high quality vector enhancement"""
     print("Starting high quality vectorization process...")
@@ -595,96 +1159,139 @@ def process_documents():
         print("Failed to setup Weaviate collection")
         return
     
-    # Check PDF directory
-    pdf_dir = "pdfs"
-    if not os.path.exists(pdf_dir) or not os.listdir(pdf_dir):
-        print(f"Error: PDFs directory '{pdf_dir}' not found or empty")
-        return
-    
-    # Load documents
-    print(f"Loading PDFs from {pdf_dir}...")
-    loader = DirectoryLoader(pdf_dir, glob="**/*.pdf", loader_cls=PyPDFLoader, show_progress=True)
-    documents = loader.load()
-    
-    if not documents:
-        print("No documents loaded")
-        return
-    
-    # Group by source
-    docs_by_source = {}
-    for doc in documents:
-        source = doc.metadata.get("source", "")
-        if source:
-            docs_by_source.setdefault(source, []).append(doc)
-    
-    # Sort by page number
-    for source_docs in docs_by_source.values():
-        source_docs.sort(key=lambda x: x.metadata.get("page", 0))
-    
-    print(f"Loaded {len(documents)} pages from {len(docs_by_source)} documents")
-    
-    # Prepare for processing
     all_chunks = []
-    doc_embeddings = {}
+    all_doc_embeddings = {}
     
-    # Process each document
-    for source, source_docs in docs_by_source.items():
-        print(f"Processing {os.path.basename(source)}...")
-        
-        # Extract metadata
-        pdf_meta = extract_pdf_metadata(source)
-        json_meta = extract_json_metadata(source)
-        combined_meta = {**pdf_meta, **json_meta}
-        combined_meta["source"] = source
-        combined_meta["filename"] = os.path.basename(source)
-        
-        # Create document embedding for hierarchical approach
-        if USE_HIERARCHICAL_EMBEDDINGS:
-            doc_title = combined_meta.get("title", os.path.basename(source))
-            doc_summary = create_document_summary(source_docs, doc_title)
-            if doc_summary:
-                doc_text = enhance_text_for_embedding(doc_summary, {"title": doc_title})
-                try:
-                    doc_embeddings[source] = embedding_model.embed_query(doc_text)
-                except Exception as e:
-                    print(f"Error creating document embedding: {e}")
-        
-        # Combine all pages with markers
-        full_text = ""
-        for doc in source_docs:
-            page = doc.metadata.get("page", 0)
-            full_text += f"\n\n[PAGE {page+1}]\n{doc.page_content}"
-        
-        # Split into chunks
-        text_chunks = text_splitter.split_text(full_text)
-        
-        # Process each chunk
-        for chunk_text in text_chunks:
-            # Clean text
-            cleaned_text = clean_text(chunk_text)
-            if not cleaned_text or len(cleaned_text) < 100:
-                continue
-            
-            # Extract page number
-            page_match = re.search(r"\[PAGE (\d+)\]", chunk_text)
-            page_num = int(page_match.group(1))-1 if page_match else 0
-            
-            # Create chunk metadata
-            chunk_meta = combined_meta.copy()
-            chunk_meta["page"] = page_num
-            chunk_meta["text"] = cleaned_text
-            chunk_meta["embedding_model"] = model_name
-            chunk_meta["hierarchical_embedding"] = USE_HIERARCHICAL_EMBEDDINGS
-            chunk_meta["embedding_enhanced"] = True
-            chunk_meta["chunk_size"] = CHUNK_SIZE
-            chunk_meta["chunk_overlap"] = CHUNK_OVERLAP
-            
-            all_chunks.append({"metadata": chunk_meta, "source": source})
+    # Common metadata for processing session
+    processing_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    processing_metadata = {
+        "processed_date": processing_timestamp,
+        "last_updated": processing_timestamp
+    }
     
-    print(f"Created {len(all_chunks)} optimized chunks")
+    # Process PDF files
+    pdf_dir = PDF_DIR
+    if os.path.exists(pdf_dir) and os.listdir(pdf_dir):
+        print(f"\nProcessing PDFs from {pdf_dir}...")
+        loader = DirectoryLoader(pdf_dir, glob="**/*.pdf", loader_cls=PyPDFLoader, show_progress=True)
+        documents = loader.load()
+        
+        if documents:
+            # Group by source
+            docs_by_source = {}
+            for doc in documents:
+                source = doc.metadata.get("source", "")
+                if source:
+                    docs_by_source.setdefault(source, []).append(doc)
+            
+            # Sort by page number
+            for source_docs in docs_by_source.values():
+                source_docs.sort(key=lambda x: x.metadata.get("page", 0))
+            
+            print(f"Loaded {len(documents)} pages from {len(docs_by_source)} documents")
+            
+            # Process each document
+            for source, source_docs in docs_by_source.items():
+                print(f"Processing {os.path.basename(source)}...")
+                
+                # Extract metadata
+                pdf_meta = extract_pdf_metadata(source)
+                json_meta = extract_json_metadata(source)
+                
+                # Generate a unique document ID
+                doc_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, source))
+                
+                combined_meta = {**pdf_meta, **json_meta, **processing_metadata}
+                combined_meta["source"] = source
+                combined_meta["filename"] = os.path.basename(source)
+                combined_meta["content_type"] = "pdf"
+                combined_meta["document_id"] = doc_id
+                
+                # Try to categorize content based on available metadata
+                categories = []
+                if "subject" in combined_meta and combined_meta["subject"]:
+                    categories.append(combined_meta["subject"])
+                
+                if "keywords" in combined_meta and combined_meta["keywords"]:
+                    # Extract tags from keywords
+                    tags = [tag.strip() for tag in combined_meta["keywords"].split(",") if tag.strip()]
+                    if tags:
+                        combined_meta["content_tags"] = tags
+                        # Add first two tags as categories if not too many categories
+                        if len(categories) < 2 and tags:
+                            categories.extend(tags[:2])
+                
+                if categories:
+                    combined_meta["content_category"] = ", ".join(categories[:3])  # Limit to 3 categories
+                
+                # Create document embedding for hierarchical approach
+                if USE_HIERARCHICAL_EMBEDDINGS:
+                    doc_title = combined_meta.get("title", os.path.basename(source))
+                    doc_summary = create_document_summary(source_docs, doc_title)
+                    if doc_summary:
+                        doc_text = enhance_text_for_embedding(doc_summary, {"title": doc_title})
+                        try:
+                            all_doc_embeddings[source] = embedding_model.embed_query(doc_text)
+                        except Exception as e:
+                            print(f"Error creating document embedding: {e}")
+                
+                # Combine all pages with markers
+                full_text = ""
+                for doc in source_docs:
+                    page = doc.metadata.get("page", 0)
+                    full_text += f"\n\n[PAGE {page+1}]\n{doc.page_content}"
+                
+                # Split into chunks
+                text_chunks = text_splitter.split_text(full_text)
+                
+                # Process each chunk
+                for chunk_text in text_chunks:
+                    # Clean text
+                    cleaned_text = clean_text(chunk_text)
+                    if not cleaned_text or len(cleaned_text) < 100:
+                        continue
+                    
+                    # Extract page number
+                    page_match = re.search(r"\[PAGE (\d+)\]", chunk_text)
+                    page_num = int(page_match.group(1))-1 if page_match else 0
+                    
+                    # Create chunk metadata
+                    chunk_meta = combined_meta.copy()
+                    chunk_meta["page"] = page_num
+                    chunk_meta["text"] = cleaned_text
+                    chunk_meta["embedding_model"] = model_name
+                    chunk_meta["hierarchical_embedding"] = USE_HIERARCHICAL_EMBEDDINGS
+                    chunk_meta["embedding_enhanced"] = True
+                    chunk_meta["chunk_size"] = CHUNK_SIZE
+                    chunk_meta["chunk_overlap"] = CHUNK_OVERLAP
+                    
+                    all_chunks.append({"metadata": chunk_meta, "source": source})
+    else:
+        print(f"PDF directory '{pdf_dir}' not found or empty")
+    
+    # Process transcript files
+    transcript_chunks, transcript_embeddings = process_transcript_files()
+    
+    # Add common processing metadata to all transcript chunks
+    for chunk in transcript_chunks:
+        chunk["metadata"].update(processing_metadata)
+        
+        # Generate a unique document ID if not present
+        if "document_id" not in chunk["metadata"]:
+            source = chunk["metadata"].get("source", "")
+            chunk["metadata"]["document_id"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, source))
+    
+    all_chunks.extend(transcript_chunks)
+    all_doc_embeddings.update(transcript_embeddings)
+    
+    if not all_chunks:
+        print("No documents processed")
+        return
+    
+    print(f"\nTotal chunks to process: {len(all_chunks)}")
     
     # Process in batches
-    batch_size = 800  # Small batches for better handling
+    batch_size = BATCH_SIZE
     success_count = 0
     skip_count = 0
     error_count = 0
@@ -695,7 +1302,13 @@ def process_documents():
         print(f"Processing batch {i//batch_size + 1}/{(len(all_chunks)-1)//batch_size + 1}")
         
         # Prepare texts for embedding
-        texts = [enhance_text_for_embedding(chunk["metadata"]["text"], chunk["metadata"]) for chunk in batch]
+        texts = []
+        for chunk in batch:
+            content_type = chunk["metadata"].get("content_type", "")
+            if content_type == "transcript":
+                texts.append(enhance_transcript_for_embedding(chunk["metadata"]["text"], chunk["metadata"]))
+            else:  # Default to PDF enhancement
+                texts.append(enhance_text_for_embedding(chunk["metadata"]["text"], chunk["metadata"]))
         
         try:
             # Generate embeddings
@@ -706,9 +1319,9 @@ def process_documents():
                 source = chunk_data["source"]
                 
                 # Apply hierarchical blending if available
-                if USE_HIERARCHICAL_EMBEDDINGS and source in doc_embeddings:
+                if USE_HIERARCHICAL_EMBEDDINGS and source in all_doc_embeddings:
                     original_vector = vector
-                    vector = blend_hierarchical_embedding(vector, doc_embeddings[source])
+                    vector = blend_hierarchical_embedding(vector, all_doc_embeddings[source])
                     if vector != original_vector:
                         hierarchical_count += 1
                 
