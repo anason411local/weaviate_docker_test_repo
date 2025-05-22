@@ -28,7 +28,7 @@ load_dotenv()
 
 # --- Configuration ---
 # Weaviate connection
-WEAVIATE_URL = "http://localhost:8090"
+WEAVIATE_URL = "http://localhost:8087"
 WEAVIATE_API_KEY = os.getenv("WEAVIATE_API_KEY")
 COLLECTION_NAME = "Area_expansion_Dep_Anas_V3"
 

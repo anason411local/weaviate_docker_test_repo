@@ -54,7 +54,10 @@ from weaviate_classes_objects_check import (
 # Load environment variables
 load_dotenv()
 WEAVIATE_API_KEY = os.getenv("WEAVIATE_API_KEY")
-WEAVIATE_URL = os.getenv("WEAVIATE_URL", "http://localhost:8090")
+WEAVIATE_URL = os.getenv("WEAVIATE_URL", "http://localhost:8087")
+
+# Print the Weaviate URL for debugging
+print(f"Connecting to Weaviate at: {WEAVIATE_URL}")
 
 # Initialize FastAPI app
 app = FastAPI(
