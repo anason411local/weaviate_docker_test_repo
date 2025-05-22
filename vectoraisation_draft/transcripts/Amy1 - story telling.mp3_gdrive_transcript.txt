@@ -1,0 +1,15 @@
+Title: Amy1 - story telling.mp3
+Source Identifier (URL/ID): https://drive.google.com/file/d/1XouEsPli4TGZlRvHJWD6_jpiaksosszN/view?usp=sharing
+Media Source: Google Drive Audio
+Duration: 0:01:09
+MIME Type: audio/mp3
+Created Date: 2019-02-11T21:52:35.491Z
+Modified Date: 2021-01-08T12:48:03.902Z
+File Size (bytes): 138528
+Original Media Duration: 0:01:09
+STT Status (GDrive): Failed - STT Unknown Value
+STT Details (GDrive): GDrive STT (audio): Google API couldn't understand
+Detected Media Type: audio
+------------------------------
+Transcript:
+No transcript generated or found.

@@ -1,0 +1,15 @@
+Title: Call Control_Supplementary: Kony + Silviya (Version 1) NEW.mp4
+Source Identifier (URL/ID): https://drive.google.com/file/d/1XQ6FxWxEx8nrQTE0cvDSeyCoCHKgpKpT/view
+Media Source: Google Drive Video
+Duration: 0:08:09
+MIME Type: video/mp4
+Created Date: 2019-01-23T01:01:30.378Z
+Modified Date: 2023-02-28T16:37:23.513Z
+File Size (bytes): 380123971
+Original Media Duration: 0:08:09
+STT Status (GDrive): Failed - STT Request Error
+STT Details (GDrive): GDrive STT (video): Google API error; recognition request failed: Bad Request
+Detected Media Type: video
+------------------------------
+Transcript:
+No transcript generated or found.

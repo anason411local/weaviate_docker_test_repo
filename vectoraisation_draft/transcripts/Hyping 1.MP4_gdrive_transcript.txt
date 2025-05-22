@@ -1,0 +1,15 @@
+Title: Hyping 1.MP4
+Source Identifier (URL/ID): https://drive.google.com/file/d/0ByltESDpyfGRb21IN3JWRDBQYVU/view?usp=drive_link&resourcekey=0-VBujxQ5u5s_icvOxRqoJuQ
+Media Source: Google Drive Video
+Duration: 0:04:46
+MIME Type: video/mp4
+Created Date: 2016-04-14T19:47:02.359Z
+Modified Date: 2024-05-23T15:30:54.469Z
+File Size (bytes): 2102635146
+Original Media Duration: 0:04:46
+STT Status (GDrive): Failed - STT Request Error
+STT Details (GDrive): GDrive STT (video): Google API error; recognition request failed: Bad Request
+Detected Media Type: video
+------------------------------
+Transcript:
+No transcript generated or found.

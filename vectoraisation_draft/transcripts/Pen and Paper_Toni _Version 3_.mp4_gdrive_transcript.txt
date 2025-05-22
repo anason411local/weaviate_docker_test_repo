@@ -1,0 +1,15 @@
+Title: Pen and Paper_Toni (Version 3).mp4
+Source Identifier (URL/ID): https://drive.google.com/file/d/16eTlQGMlEZNJFrx8Z-0sUmBDRXissMU1/view
+Media Source: Google Drive Video
+Duration: 0:11:00
+MIME Type: video/mp4
+Created Date: 2019-01-21T22:44:13.150Z
+Modified Date: 2019-01-22T21:24:35.582Z
+File Size (bytes): 272256197
+Original Media Duration: 0:11:00
+STT Status (GDrive): Failed - STT Request Error
+STT Details (GDrive): GDrive STT (video): Google API error; recognition connection failed: [Errno 32] Broken pipe
+Detected Media Type: video
+------------------------------
+Transcript:
+No transcript generated or found.

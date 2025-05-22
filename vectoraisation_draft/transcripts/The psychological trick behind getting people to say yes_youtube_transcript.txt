@@ -1,0 +1,21 @@
+Title: The psychological trick behind getting people to say yes
+Source Identifier (URL/ID): HctZg2aOPMw
+Media Source: YouTube
+Duration: 0:07:55
+Channel: PBS NewsHour
+Publish Date: 2016-09-22
+YouTube Video ID: HctZg2aOPMw
+CSV Video ID (for log reference): HctZg2aOPMw
+Views: 3744680
+Description: Quiz: Are you a sucker or a master? https://to.pbs.org/2QntlqB
+Watch more from Making Sen$e: https://bit.ly/2D8w9kc
+Read more economic news: https://to.pbs.org/2PNUx19
+
+Asking for someone’s phone number in front of a flower shop will be more successful because the flowers prime us to think about romance. Small, subliminal cues change our willingness to be sold on a product, on ideas or even a date. Economics correspondent Paul Solman speaks with psychology professor Robert Cialdini about his book, “Pre-Suasion,” the crucial step before persuasion.
+Keywords: N/A
+Transcript Source: N/A
+Overall Status: Failed (Transcript STT Error)
+Processing Details: Metadata OK. YouTube API transcript:  | yt-dlp VTT: File not created. | STT Error: recognition connection failed: [Errno 32] Broken pipe
+------------------------------
+Transcript:
+No transcript generated or found.

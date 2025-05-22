@@ -1,0 +1,15 @@
+Title: lightshot chrome extention - Google Search.mp4
+Source Identifier (URL/ID): https://drive.google.com/file/d/1m-n5Pq0Fw6wHUigOxQLlkKBBqqlY6WG4/view?usp=sharing
+Media Source: Google Drive Video
+Duration: 0:02:00
+MIME Type: video/mp4
+Created Date: 2020-09-22T13:26:55.577Z
+Modified Date: 2023-05-02T14:08:23.722Z
+File Size (bytes): 20221867
+Original Media Duration: 0:02:00
+STT Status (GDrive): Transcript Success (STT)
+STT Details (GDrive): Google Web Speech API (GDrive video audio)
+Detected Media Type: video
+------------------------------
+Transcript:
+painting so this is a quick tutorial how to use a make screenshots real quick to communicate better and more accurate with other departments so first step you got to install your light shot from a extension what you got to do is just Google light shot Chrome extension open the Chrome google.com store and add that extension in my case it's already added once you have the extension you see here right next to your other extensions with like a purple feather so how do you use that and let's say right now we're going to look at the customer's website and we want to change this picture right so all you have to do is just let the weather like the area that you want to make a screenshot of and then with the navigation menu over here you can be a little bit more specific so let's say I'm going to select the the picture I want to share I'm going to add an arrow right you have to do is hit the button to the page where the screenshot is you have to copy the URL take it just like you normally would so here I'm going to face it and this is how it looks like so when you put that in your truck tickets

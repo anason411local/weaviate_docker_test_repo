@@ -1,0 +1,15 @@
+Title: [WB] PPL - How to create a deal.mp4
+Source Identifier (URL/ID): https://drive.google.com/file/d/1MrDDW7FCCA-Amm6teWQrU5FJLlEah-sG/view?usp=sharing
+Media Source: Google Drive Video
+Duration: 0:03:12
+MIME Type: video/mp4
+Created Date: 2020-05-21T15:52:40.526Z
+Modified Date: 2020-05-21T14:53:08.000Z
+File Size (bytes): 31482641
+Original Media Duration: 0:03:12
+STT Status (GDrive): Transcript Success (STT)
+STT Details (GDrive): Google Web Speech API (GDrive video audio)
+Detected Media Type: video
+------------------------------
+Transcript:
+nice so I'm preparing a quick tutorial for a few seconds how to appropriately create a deal for paper League obviously I'm doing it right now in the test account you're doing it in your real accounts so right now I'm in the accounts module and then I'm going to do deals I start creating a new deal I'm not going to go to the details here so you do official video you got to see where on your Instagram so you got to see you this is how you set up and then obviously this is your birthday going to do it separately but this is the only exception where you do the two products in one deal because the one cannot work without the other and so they always go together that's it let me know if you have any questions bye

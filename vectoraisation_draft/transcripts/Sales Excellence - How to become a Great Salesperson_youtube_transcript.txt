@@ -1,0 +1,17 @@
+Title: Sales Excellence - How to become a Great Salesperson
+Source Identifier (URL/ID): Tl6yL4wucqk
+Media Source: YouTube
+Duration: 0:13:27
+Channel: Victor Antonio
+Publish Date: 2013-06-06
+YouTube Video ID: Tl6yL4wucqk
+CSV Video ID (for log reference): Tl6yL4wucqk
+Views: 1930712
+Description: What does it take to be great at selling?  What does it take to achieve a level of sales excellence?  In this video on selling, I walk you through the steps every great salesperson takes to achieve a level of success that eludes others.  http://www.VictorAntonio.com  #salesexcellence #greatsalesperson #howtosell
+Keywords: sales excellence, sales manifesto, great salesman in the world, greatest salesperson, how to, how to sell, selling, sales motivation, sales trainer, victor antonio, Business, Training, sales rant, rant
+Transcript Source: N/A
+Overall Status: Failed (Transcript STT Error)
+Processing Details: Metadata OK. YouTube API transcript:  | yt-dlp VTT: File not created. | STT Error: recognition connection failed: [Errno 32] Broken pipe
+------------------------------
+Transcript:
+No transcript generated or found.

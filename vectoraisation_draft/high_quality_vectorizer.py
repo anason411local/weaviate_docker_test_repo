@@ -470,18 +470,59 @@ def setup_weaviate_collection():
             headers=headers
         )
         
-        # Handle recreation if requested
-        if response.status_code == 200 and RECREATE_COLLECTION:
-            print(f"Deleting existing collection '{collection_name}'...")
-            delete_response = requests.delete(
-                f"{WEAVIATE_URL}/v1/schema/{collection_name}", 
-                headers=headers
-            )
-            if delete_response.status_code not in [200, 204, 404]:
-                print(f"Error deleting collection: {delete_response.status_code}")
-                return False
-            print(f"✅ Collection deleted successfully")
-            response.status_code = 404  # Mark as not existing
+        # Handle existing collection
+        if response.status_code == 200:
+            print(f"\nCollection '{collection_name}' already exists.")
+            if RECREATE_COLLECTION:
+                print("\nOptions:")
+                print("1. Delete and recreate collection (all data will be lost)")
+                print("2. Update existing collection (keep existing data)")
+                print("3. Skip collection setup")
+                
+                while True:
+                    choice = input("\nEnter your choice (1-3): ").strip()
+                    if choice == "1":
+                        confirm = input("WARNING: This will delete all existing data. Are you sure? (yes/no): ").strip().lower()
+                        if confirm == "yes":
+                            print(f"Deleting existing collection '{collection_name}'...")
+                            delete_response = requests.delete(
+                                f"{WEAVIATE_URL}/v1/schema/{collection_name}", 
+                                headers=headers
+                            )
+                            if delete_response.status_code not in [200, 204, 404]:
+                                print(f"Error deleting collection: {delete_response.status_code}")
+                                return False
+                            print(f"✅ Collection deleted successfully")
+                            response.status_code = 404  # Mark as not existing
+                            break
+                        else:
+                            print("Operation cancelled.")
+                            return False
+                    elif choice == "2":
+                        print(f"Updating existing collection '{collection_name}'...")
+                        # Check if schema needs updating
+                        current_schema = response.json()
+                        current_properties = {p.get("name"): True for p in current_schema.get("properties", [])}
+                        
+                        # Add any missing properties
+                        for prop in schema["properties"]:
+                            if prop["name"] not in current_properties:
+                                print(f"Adding property {prop['name']}...")
+                                requests.post(
+                                    f"{WEAVIATE_URL}/v1/schema/{collection_name}/properties",
+                                    headers=headers,
+                                    json=prop
+                                )
+                        print("✅ Collection updated successfully")
+                        return True
+                    elif choice == "3":
+                        print("Skipping collection setup.")
+                        return True
+                    else:
+                        print("Invalid choice. Please enter 1, 2, or 3.")
+            else:
+                print(f"Using existing collection '{collection_name}'")
+                return True
         
         # Create if doesn't exist
         if response.status_code != 200:
@@ -495,22 +536,6 @@ def setup_weaviate_collection():
                 print(f"Error creating collection: {create_response.status_code}")
                 return False
             print(f"✅ Collection created successfully with {len(schema['properties'])} properties")
-        else:
-            print(f"Collection '{collection_name}' already exists")
-            
-            # Check if schema needs updating
-            current_schema = response.json()
-            current_properties = {p.get("name"): True for p in current_schema.get("properties", [])}
-            
-            # Add any missing properties
-            for prop in schema["properties"]:
-                if prop["name"] not in current_properties:
-                    print(f"Adding property {prop['name']}...")
-                    requests.post(
-                        f"{WEAVIATE_URL}/v1/schema/{collection_name}/properties",
-                        headers=headers,
-                        json=prop
-                    )
         
         return True
     except Exception as e:

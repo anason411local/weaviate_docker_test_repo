@@ -1,0 +1,15 @@
+Title: ROI_Marlon (Version 2).mp4
+Source Identifier (URL/ID): https://drive.google.com/file/d/1xKKeTelxTsiqUoLkFnivqgfqV6GQCFi0/view
+Media Source: Google Drive Video
+Duration: 0:06:09
+MIME Type: video/mp4
+Created Date: 2019-01-30T23:44:14.310Z
+Modified Date: 2019-02-20T17:37:41.642Z
+File Size (bytes): 283261846
+Original Media Duration: 0:06:09
+STT Status (GDrive): Failed - STT Request Error
+STT Details (GDrive): GDrive STT (video): Google API error; recognition connection failed: [Errno 32] Broken pipe
+Detected Media Type: video
+------------------------------
+Transcript:
+No transcript generated or found.

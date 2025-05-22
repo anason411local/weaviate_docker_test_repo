@@ -1,0 +1,15 @@
+Title: [WB] Find Product and Price.mp4
+Source Identifier (URL/ID): https://drive.google.com/file/d/1MRXSKvyte5HYU4o6zQ2GvoFrF4Qkxn3-/view
+Media Source: Google Drive Video
+Duration: 0:03:27
+MIME Type: video/mp4
+Created Date: 2021-03-04T10:04:36.433Z
+Modified Date: 2021-03-04T10:03:34.000Z
+File Size (bytes): 29565011
+Original Media Duration: 0:03:27
+STT Status (GDrive): Transcript Success (STT)
+STT Details (GDrive): Google Web Speech API (GDrive video audio)
+Detected Media Type: video
+------------------------------
+Transcript:
+King this is a very quick crash course how to find a product what's their prices and what does the product contain so it's very simple you go in your CRM under financial and products you going to do some filtering so number one always remember to clear if you know the name of the product you can search it here for example logo find anything so what I'm going to do is I'm going to put the percentage sign before and after the word in essence anytime we searched in CRM for something if you put the percentage sign before you mean in other words you're searching whatever works is before logo still show me the results so if you just put logo is going to show you the exact match is there a product with the name Logo but the name is custom logo then you need to put a percentage before the word logo just to be sure I'm going to put percentage before and after and now I'm going to see here's the local you can see the name of the product is custom logo design so that's why when I search for logo I didn't find it there is no such product that is exactly called logo when you put the percentage sign before and after it looks for any product that has logo in it in here you can see the setup price of the logo is 100 bucks no recurring fee and recurring volume zero the productive this means we can sell it and if you click on the product itself you see the description of the logo please use the procedure for logo design and here's the procedure for logo design there you go let's say you're searching for a custom website feature what you want to filter and you don't know the name of the product so I'm going to filter active we always so only active products I'm going to let active and let's say custom website customer service and you can see here you have the basic customer website basically shop with functionality basic online store functionality with SSL certificate Etc now here for example let's click on basic custom website in the description we're going to see what does the basic customer service contact page and yeah yeah that is 49.99 tutorial helps you in the future please remember that the missions do not have access to products they don't have access to financials like we do so they don't know the problems that you cannot access the deals and they definitely don't have access to pricing it's up to you to find it if you ever need help reach out to your team lead

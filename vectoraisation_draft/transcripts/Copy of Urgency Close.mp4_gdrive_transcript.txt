@@ -1,0 +1,15 @@
+Title: Copy of Urgency Close.mp4
+Source Identifier (URL/ID): https://drive.google.com/file/d/1QsiR21-6BB2zFPGH2LEC4-R4Ceo5KtzJ/view?usp=sharing
+Media Source: Google Drive Video
+Duration: 0:09:13
+MIME Type: video/mp4
+Created Date: 2018-03-02T16:08:15.250Z
+Modified Date: 2018-03-02T17:00:50.661Z
+File Size (bytes): 170937335
+Original Media Duration: 0:09:13
+STT Status (GDrive): Failed - STT Request Error
+STT Details (GDrive): GDrive STT (video): Google API error; recognition connection failed: [Errno 32] Broken pipe
+Detected Media Type: video
+------------------------------
+Transcript:
+No transcript generated or found.

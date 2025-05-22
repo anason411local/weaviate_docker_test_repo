@@ -1,0 +1,15 @@
+Title: WB SMS Template for Promos.mp4
+Source Identifier (URL/ID): https://drive.google.com/file/d/1Ojm8_q4fiu8UifpYh1o0ZtAkgf3D_Q-k/view
+Media Source: Google Drive Video
+Duration: 0:01:08
+MIME Type: video/mp4
+Created Date: 2022-12-23T21:03:48.736Z
+Modified Date: 2022-12-23T21:04:37.041Z
+File Size (bytes): 2337115
+Original Media Duration: 0:01:08
+STT Status (GDrive): Transcript Success (STT)
+STT Details (GDrive): Google Web Speech API (GDrive video audio)
+Detected Media Type: video
+------------------------------
+Transcript:
+all right so just a really quick tutorial and where to find the text messages templates promos that we can send to our customers so first of all is you want to make sure that you are in the wind back module and you'll go ahead and assess the contact of the account and on the navigation panel you should see the send SMS functionality so just go ahead and click that on 30th apartment you have to make sure that you have chosen one back and template we have two different promos 50% off for the review Management Service so you will just choose any of those two and just have to make sure that you have the correct phone number of the customer here before hitting the send SMS button that will be it thank you

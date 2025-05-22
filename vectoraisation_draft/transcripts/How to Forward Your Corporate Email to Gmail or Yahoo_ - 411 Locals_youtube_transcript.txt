@@ -1,0 +1,31 @@
+Title: How to Forward Your Corporate Email to Gmail or Yahoo! - 411 Locals
+Source Identifier (URL/ID): Rm5qVGkiS8w
+Media Source: YouTube
+Duration: 0:00:56
+Channel: 411 Locals
+Publish Date: 2020-01-20
+YouTube Video ID: Rm5qVGkiS8w
+CSV Video ID (for log reference): Rm5qVGkiS8w
+Views: 469
+Description: A tutorial on how to forward your 411 Locals corporate email to providers such as Gmail and Yahoo!
+Keywords: forward, email, gmail, yahoo, corporate email, email forwarding
+Transcript Source: YouTube API
+Overall Status: Transcript Success (YouTube API), Metadata Success (yt-dlp)
+Processing Details: YouTube API transcript fetched.
+------------------------------
+Transcript:
+how to forward your corporate email to
+your personal email address with the
+following steps log in to your corporate
+email by typing WWE or domain.com slash
+webmail in your browser next click the
+left button as shown on the image make
+sure webmail is selected then enter your
+corporate email address and password
+click login click the down arrow next to
+your email address then press forwarders
+click add forwarder button as shown on
+the image enter the forwarding address
+and click add forward our button send a
+test email message to your corporate
+email thank you

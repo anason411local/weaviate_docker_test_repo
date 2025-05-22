@@ -1,0 +1,15 @@
+Title: Copy of Value.MP4
+Source Identifier (URL/ID): https://drive.google.com/file/d/1qgX9jHmfE53AoTY-ig8kzJL4jMOYOjjc/view
+Media Source: Google Drive Video
+Duration: 0:18:29
+MIME Type: video/mp4
+Created Date: 2018-03-02T16:08:15.250Z
+Modified Date: 2018-03-02T17:00:50.661Z
+File Size (bytes): 664881640
+Original Media Duration: 0:18:29
+STT Status (GDrive): Failed - STT Request Error
+STT Details (GDrive): GDrive STT (video): Google API error; recognition connection failed: [Errno 32] Broken pipe
+Detected Media Type: video
+------------------------------
+Transcript:
+No transcript generated or found.

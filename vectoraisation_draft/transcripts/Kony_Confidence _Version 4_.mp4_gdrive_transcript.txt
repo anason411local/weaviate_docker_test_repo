@@ -1,0 +1,15 @@
+Title: Kony_Confidence (Version 4).mp4
+Source Identifier (URL/ID): https://drive.google.com/file/d/1xEhIiDoZx0wC67b8yruCN019KxB_dF9D/view
+Media Source: Google Drive Video
+Duration: 0:10:59
+MIME Type: video/mp4
+Created Date: 2019-02-05T21:49:27.684Z
+Modified Date: 2019-04-15T21:18:53.162Z
+File Size (bytes): 479252655
+Original Media Duration: 0:10:59
+STT Status (GDrive): Failed - STT Request Error
+STT Details (GDrive): GDrive STT (video): Google API error; recognition connection failed: [Errno 32] Broken pipe
+Detected Media Type: video
+------------------------------
+Transcript:
+No transcript generated or found.

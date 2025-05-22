@@ -1,0 +1,15 @@
+Title: IB - Web Wizard; I already have a listing.mp3
+Source Identifier (URL/ID): https://drive.google.com/file/d/1t-DkPk2RLp9ORuZ9VKHzKrMTgkOTHfn8/view?usp=sharing
+Media Source: Google Drive Audio
+Duration: 0:07:06
+MIME Type: audio/mpeg
+Created Date: 2021-07-15T12:16:14.491Z
+Modified Date: 2021-07-15T12:16:46.203Z
+File Size (bytes): 853965
+Original Media Duration: 0:07:06
+STT Status (GDrive): Transcript Success (STT)
+STT Details (GDrive): Google Web Speech API (GDrive audio audio)
+Detected Media Type: audio
+------------------------------
+Transcript:
+actually have to pick up the phone that makes your job a lot easier period

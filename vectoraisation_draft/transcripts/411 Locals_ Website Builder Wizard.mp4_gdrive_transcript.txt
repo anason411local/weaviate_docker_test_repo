@@ -1,0 +1,15 @@
+Title: 411 Locals' Website Builder Wizard.mp4
+Source Identifier (URL/ID): https://drive.google.com/file/d/1PehjZ2ao1_0wIRSCcCL89ZCxi7RQNRvi/view
+Media Source: Google Drive Video
+Duration: 0:04:31
+MIME Type: video/mp4
+Created Date: 2020-05-05T11:44:34.635Z
+Modified Date: 2025-05-08T07:54:04.081Z
+File Size (bytes): 345361429
+Original Media Duration: 0:04:31
+STT Status (GDrive): Failed - STT Request Error
+STT Details (GDrive): GDrive STT (video): Google API error; recognition request failed: Bad Request
+Detected Media Type: video
+------------------------------
+Transcript:
+No transcript generated or found.

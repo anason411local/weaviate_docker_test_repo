@@ -1,0 +1,15 @@
+Title: Fail Fast Fail Often.mp3
+Source Identifier (URL/ID): https://drive.google.com/file/d/1dSiiiN55dmTe47P4BBy4eEV8aGZSCNC5/view?usp=sharing
+Media Source: Google Drive Audio
+Duration: 5:27:51
+MIME Type: audio/mp3
+Created Date: 2020-02-08T00:31:09.447Z
+Modified Date: 2020-02-08T00:31:25.937Z
+File Size (bytes): 157393505
+Original Media Duration: 5:27:51
+STT Status (GDrive): Failed - STT Request Error
+STT Details (GDrive): GDrive STT (audio): Google API error; recognition connection failed: [Errno 32] Broken pipe
+Detected Media Type: audio
+------------------------------
+Transcript:
+No transcript generated or found.

@@ -1,0 +1,15 @@
+Title: [WB] How to set up Dashlet in CRM.mp4
+Source Identifier (URL/ID): https://drive.google.com/file/d/1FmPLntko36QC99BICjlemCgFtYPvUxWK/view?usp=sharing
+Media Source: Google Drive Video
+Duration: 0:25:39
+MIME Type: video/mp4
+Created Date: 2020-09-23T14:07:03.862Z
+Modified Date: 2021-09-01T22:38:23.503Z
+File Size (bytes): 183843694
+Original Media Duration: 0:25:39
+STT Status (GDrive): Failed - STT Request Error
+STT Details (GDrive): GDrive STT (video): Google API error; recognition connection failed: [Errno 32] Broken pipe
+Detected Media Type: video
+------------------------------
+Transcript:
+No transcript generated or found.
