@@ -23,6 +23,24 @@ import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from tqdm import tqdm
 
+# Image processing imports
+try:
+    import pytesseract
+    PYTESSERACT_AVAILABLE = True
+    print("✅ Pytesseract available for OCR")
+except ImportError:
+    PYTESSERACT_AVAILABLE = False
+    print("⚠️ Pytesseract not available. OCR processing disabled.")
+
+try:
+    from PIL import Image, ImageEnhance, ImageFilter, ImageOps
+    from PIL.ExifTags import TAGS
+    PIL_AVAILABLE = True
+    print("✅ PIL available for image processing")
+except ImportError:
+    PIL_AVAILABLE = False
+    print("⚠️ PIL not available. Image processing disabled.")
+
 # Load environment variables
 load_dotenv()
 
@@ -45,6 +63,7 @@ VERBOSE_MODE = True  # Show detailed output
 # Directory settings
 PDF_DIR = "pdfs"  # Directory containing PDF files
 TRANSCRIPT_DIR = "transcripts"  # Directory containing transcript files
+IMAGE_DIR = "images"  # Directory containing image files
 
 # Parallelization settings
 NUM_PROCESSES = max(1, multiprocessing.cpu_count() - 1)  # Leave one CPU for system
@@ -65,13 +84,6 @@ try:
 except ImportError:
     NLTK_AVAILABLE = False
     print("Warning: NLTK not available. Text processing will be limited.")
-
-try:
-    from PIL import Image
-    PIL_AVAILABLE = True
-except ImportError:
-    PIL_AVAILABLE = False
-    print("Warning: PIL not available. Image processing disabled.")
 
 try:
     import fitz  # PyMuPDF
@@ -491,7 +503,35 @@ def setup_weaviate_collection():
             {"name": "last_updated", "dataType": ["text"]},
             {"name": "content_category", "dataType": ["text"]},
             {"name": "content_tags", "dataType": ["text[]"]},
-            {"name": "document_id", "dataType": ["text"]}
+            {"name": "document_id", "dataType": ["text"]},
+            
+            # Image specific properties
+            {"name": "width", "dataType": ["int"]},
+            {"name": "height", "dataType": ["int"]},
+            {"name": "format", "dataType": ["text"]},
+            {"name": "mode", "dataType": ["text"]},
+            {"name": "dpi", "dataType": ["text"]},
+            {"name": "has_exif", "dataType": ["boolean"]},
+            {"name": "camera_make", "dataType": ["text"]},
+            {"name": "camera_model", "dataType": ["text"]},
+            {"name": "datetime_taken", "dataType": ["text"]},
+            {"name": "gps_coords", "dataType": ["text"]},
+            {"name": "orientation", "dataType": ["text"]},
+            {"name": "color_depth", "dataType": ["int"]},
+            {"name": "image_quality", "dataType": ["text"]},
+            {"name": "ocr_extracted", "dataType": ["boolean"]},
+            
+            # Google Drive metadata for images
+            {"name": "image_id", "dataType": ["text"]},
+            {"name": "image_name", "dataType": ["text"]},
+            {"name": "image_mimeType", "dataType": ["text"]},
+            {"name": "image_createdTime", "dataType": ["text"]},
+            {"name": "image_modifiedTime", "dataType": ["text"]},
+            {"name": "image_size", "dataType": ["text"]},
+            {"name": "image_owner_name", "dataType": ["text"]},
+            {"name": "image_owner_email", "dataType": ["text"]},
+            {"name": "image_last_modifier", "dataType": ["text"]},
+            {"name": "image_last_modifier_email", "dataType": ["text"]}
         ]
     }
     
@@ -592,11 +632,21 @@ def store_embedding(properties, vector):
     id_string = f"{source}-{page}-{text[:50]}"
     object_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, id_string))
     
+    # Clean properties to ensure they match schema
+    cleaned_properties = {}
+    for key, value in properties.items():
+        if value is not None and value != "":
+            # Handle DPI tuple conversion
+            if key == "dpi" and isinstance(value, tuple):
+                cleaned_properties[key] = f"{value[0]},{value[1]}"
+            else:
+                cleaned_properties[key] = value
+    
     # Prepare object data
     object_data = {
         "id": object_id,
         "class": COLLECTION_NAME,
-        "properties": properties,
+        "properties": cleaned_properties,
         "vector": vector
     }
     
@@ -615,6 +665,8 @@ def store_embedding(properties, vector):
         else:
             if VERBOSE_MODE or response.status_code != 422:
                 print(f"Error storing object: {response.status_code}")
+                print(f"Response: {response.text}")
+                print(f"Object keys: {list(cleaned_properties.keys())}")
             return False
     except Exception as e:
         print(f"Error in Weaviate request: {e}")
@@ -1284,6 +1336,21 @@ def process_documents():
     all_chunks.extend(transcript_chunks)
     all_doc_embeddings.update(transcript_embeddings)
     
+    # Process image files
+    image_chunks, image_embeddings = process_image_files()
+    
+    # Add common processing metadata to all image chunks
+    for chunk in image_chunks:
+        chunk["metadata"].update(processing_metadata)
+        
+        # Generate a unique document ID if not present
+        if "document_id" not in chunk["metadata"]:
+            source = chunk["metadata"].get("source", "")
+            chunk["metadata"]["document_id"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, source))
+    
+    all_chunks.extend(image_chunks)
+    all_doc_embeddings.update(image_embeddings)
+    
     if not all_chunks:
         print("No documents processed")
         return
@@ -1307,6 +1374,8 @@ def process_documents():
             content_type = chunk["metadata"].get("content_type", "")
             if content_type == "transcript":
                 texts.append(enhance_transcript_for_embedding(chunk["metadata"]["text"], chunk["metadata"]))
+            elif content_type == "image":
+                texts.append(enhance_image_for_embedding(chunk["metadata"]["text"], chunk["metadata"]))
             else:  # Default to PDF enhancement
                 texts.append(enhance_text_for_embedding(chunk["metadata"]["text"], chunk["metadata"]))
         
@@ -1350,6 +1419,543 @@ def process_documents():
     if USE_HIERARCHICAL_EMBEDDINGS:
         print(f"Hierarchical embeddings applied: {hierarchical_count} chunks")
     print("==================================")
+
+# ----- Image Processing Functions -----
+def extract_image_metadata(image_path):
+    """Extract comprehensive metadata from image files"""
+    default_meta = {
+        "title": "", "width": 0, "height": 0, "format": "", "mode": "",
+        "file_size": 0, "dpi": (0, 0), "has_exif": False, "camera_make": "",
+        "camera_model": "", "datetime_taken": "", "gps_coords": "",
+        "orientation": "", "color_depth": 0, "compression": "",
+        "content_type": "image", "image_quality": "unknown"
+    }
+    
+    if not PIL_AVAILABLE or not os.path.exists(image_path):
+        return default_meta
+    
+    try:
+        filename = os.path.basename(image_path)
+        filepath = os.path.dirname(image_path)
+        relative_path = os.path.relpath(filepath, IMAGE_DIR) if os.path.commonpath([filepath, IMAGE_DIR]) == IMAGE_DIR else ""
+        
+        metadata = default_meta.copy()
+        metadata.update({
+            "title": os.path.splitext(filename)[0],
+            "file_size": os.path.getsize(image_path),
+            "folder": relative_path,
+            "filename": filename
+        })
+        
+        # Open image and extract basic info
+        with Image.open(image_path) as img:
+            metadata.update({
+                "width": img.width,
+                "height": img.height,
+                "format": img.format or "",
+                "mode": img.mode or "",
+                "dpi": getattr(img, 'dpi', (0, 0)) or (0, 0)
+            })
+            
+            # Calculate color depth
+            if img.mode == "1":
+                metadata["color_depth"] = 1
+            elif img.mode == "L":
+                metadata["color_depth"] = 8
+            elif img.mode == "P":
+                metadata["color_depth"] = 8
+            elif img.mode == "RGB":
+                metadata["color_depth"] = 24
+            elif img.mode == "RGBA":
+                metadata["color_depth"] = 32
+            elif img.mode == "CMYK":
+                metadata["color_depth"] = 32
+            else:
+                metadata["color_depth"] = 0
+            
+            # Try to determine image quality based on resolution and file size
+            total_pixels = img.width * img.height
+            if total_pixels > 0:
+                # Calculate bytes per pixel
+                bytes_per_pixel = metadata["file_size"] / total_pixels
+                
+                if bytes_per_pixel > 3.0:
+                    metadata["image_quality"] = "high"
+                elif bytes_per_pixel > 1.5:
+                    metadata["image_quality"] = "medium"
+                else:
+                    metadata["image_quality"] = "low"
+            
+            # Extract EXIF data if available
+            try:
+                exif_data = img._getexif()
+                if exif_data:
+                    metadata["has_exif"] = True
+                    
+                    for tag_id, value in exif_data.items():
+                        tag = TAGS.get(tag_id, tag_id)
+                        
+                        if tag == "Make":
+                            metadata["camera_make"] = str(value)
+                        elif tag == "Model":
+                            metadata["camera_model"] = str(value)
+                        elif tag == "DateTime":
+                            metadata["datetime_taken"] = str(value)
+                        elif tag == "Orientation":
+                            orientations = {
+                                1: "Normal", 2: "Mirrored", 3: "Rotated 180°",
+                                4: "Mirrored and rotated 180°", 5: "Mirrored and rotated 90° CCW",
+                                6: "Rotated 90° CW", 7: "Mirrored and rotated 90° CW",
+                                8: "Rotated 90° CCW"
+                            }
+                            metadata["orientation"] = orientations.get(value, f"Unknown ({value})")
+                        elif tag == "GPSInfo" and isinstance(value, dict):
+                            # Extract GPS coordinates if available
+                            try:
+                                lat = value.get(2)  # GPSLatitude
+                                lat_ref = value.get(1)  # GPSLatitudeRef
+                                lon = value.get(4)  # GPSLongitude
+                                lon_ref = value.get(3)  # GPSLongitudeRef
+                                
+                                if lat and lon:
+                                    # Convert DMS to decimal degrees
+                                    def dms_to_decimal(dms, ref):
+                                        degrees = float(dms[0])
+                                        minutes = float(dms[1]) / 60.0
+                                        seconds = float(dms[2]) / 3600.0
+                                        decimal = degrees + minutes + seconds
+                                        if ref in ['S', 'W']:
+                                            decimal = -decimal
+                                        return decimal
+                                    
+                                    lat_decimal = dms_to_decimal(lat, lat_ref)
+                                    lon_decimal = dms_to_decimal(lon, lon_ref)
+                                    metadata["gps_coords"] = f"{lat_decimal}, {lon_decimal}"
+                            except:
+                                pass
+            except:
+                pass  # EXIF not available or readable
+        
+        # Detect potential content category from filename and path
+        content_categories = {
+            "screenshot": ["screenshot", "screen", "capture", "snap"],
+            "chart": ["chart", "graph", "plot", "diagram"],
+            "document": ["document", "doc", "page", "scan"],
+            "presentation": ["slide", "presentation", "ppt"],
+            "success_story": ["success", "story", "case", "result"],
+            "training": ["training", "tutorial", "guide", "how-to"],
+            "marketing": ["marketing", "ad", "promo", "campaign"],
+            "infographic": ["infographic", "info", "visual"]
+        }
+        
+        text_to_check = (filename + " " + relative_path).lower()
+        for category, keywords in content_categories.items():
+            for keyword in keywords:
+                if keyword in text_to_check:
+                    metadata["content_category"] = category
+                    break
+            if "content_category" in metadata:
+                break
+        
+        return metadata
+        
+    except Exception as e:
+        print(f"Error extracting image metadata: {e}")
+        return default_meta
+
+def extract_image_json_metadata(image_path):
+    """Get metadata from JSON file associated with image"""
+    try:
+        image_dir = os.path.dirname(image_path)
+        image_name = os.path.basename(image_path)
+        image_name_no_ext = os.path.splitext(image_name)[0]
+        
+        # Try to find matching JSON file
+        possible_json_names = [
+            f"{image_name_no_ext}_metadata.json",
+            f"{image_name_no_ext}.json",
+            f"{image_name}_metadata.json"
+        ]
+        
+        json_path = None
+        for json_name in possible_json_names:
+            potential_path = os.path.join(image_dir, json_name)
+            if os.path.exists(potential_path):
+                json_path = potential_path
+                break
+        
+        if not json_path:
+            return {}
+            
+        with open(json_path, 'r', encoding='utf-8') as f:
+            json_data = json.load(f)
+        
+        # Process Google Drive metadata structure
+        processed_data = {}
+        for key, value in json_data.items():
+            field_name = f"image_{key}" if not key.startswith("image_") else key
+            
+            if isinstance(value, (bool, int, float, str)):
+                processed_data[field_name] = value
+            elif isinstance(value, list) and len(value) > 0:
+                # Handle arrays like owners
+                if key == "owners" and len(value) > 0:
+                    owner = value[0]
+                    if isinstance(owner, dict):
+                        processed_data["image_owner_name"] = owner.get("displayName", "")
+                        processed_data["image_owner_email"] = owner.get("emailAddress", "")
+                elif key == "lastModifyingUser" and isinstance(value, dict):
+                    processed_data["image_last_modifier"] = value.get("displayName", "")
+                else:
+                    try:
+                        processed_data[field_name] = json.dumps(value)
+                    except:
+                        processed_data[field_name] = str(value)
+            elif isinstance(value, dict):
+                # Handle nested objects
+                if key == "lastModifyingUser":
+                    processed_data["image_last_modifier"] = value.get("displayName", "")
+                    processed_data["image_last_modifier_email"] = value.get("emailAddress", "")
+                else:
+                    try:
+                        processed_data[field_name] = json.dumps(value)
+                    except:
+                        processed_data[field_name] = str(value)
+            else:
+                try:
+                    processed_data[field_name] = json.dumps(value)
+                except:
+                    processed_data[field_name] = str(value)
+        
+        return processed_data
+    except Exception as e:
+        print(f"Error extracting JSON metadata for image: {e}")
+        return {}
+
+def preprocess_image_for_ocr(image_path):
+    """Preprocess image to improve OCR quality"""
+    if not PIL_AVAILABLE:
+        return None
+    
+    try:
+        with Image.open(image_path) as img:
+            # Convert to RGB if needed
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # Convert to grayscale for better OCR
+            img = img.convert('L')
+            
+            # Enhance contrast
+            enhancer = ImageEnhance.Contrast(img)
+            img = enhancer.enhance(2.0)
+            
+            # Enhance sharpness
+            enhancer = ImageEnhance.Sharpness(img)
+            img = enhancer.enhance(1.5)
+            
+            # Resize if too small (OCR works better on larger images)
+            width, height = img.size
+            if width < 1000 or height < 1000:
+                scale_factor = max(1000 / width, 1000 / height)
+                new_width = int(width * scale_factor)
+                new_height = int(height * scale_factor)
+                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Apply median filter to reduce noise
+            img = img.filter(ImageFilter.MedianFilter(size=3))
+            
+            return img
+    except Exception as e:
+        print(f"Error preprocessing image: {e}")
+        return None
+
+def extract_text_from_image(image_path, metadata=None):
+    """Extract text from image using OCR with enhanced preprocessing"""
+    if not PYTESSERACT_AVAILABLE or not PIL_AVAILABLE:
+        return ""
+    
+    try:
+        # Preprocess image for better OCR
+        processed_img = preprocess_image_for_ocr(image_path)
+        if processed_img is None:
+            return ""
+        
+        # Configure Tesseract for better results
+        custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .,!?@#$%&*()[]{}:;"\'+-=/<>|_~`'
+        
+        # Extract text
+        extracted_text = pytesseract.image_to_string(processed_img, config=custom_config)
+        
+        # Try different PSM modes if first attempt yields poor results
+        if len(extracted_text.strip()) < 20:
+            # Try PSM 3 (fully automatic page segmentation)
+            config_psm3 = r'--oem 3 --psm 3'
+            extracted_text_psm3 = pytesseract.image_to_string(processed_img, config=config_psm3)
+            
+            if len(extracted_text_psm3.strip()) > len(extracted_text.strip()):
+                extracted_text = extracted_text_psm3
+        
+        # If still poor results, try PSM 11 (sparse text)
+        if len(extracted_text.strip()) < 20:
+            config_psm11 = r'--oem 3 --psm 11'
+            extracted_text_psm11 = pytesseract.image_to_string(processed_img, config=config_psm11)
+            
+            if len(extracted_text_psm11.strip()) > len(extracted_text.strip()):
+                extracted_text = extracted_text_psm11
+        
+        # Clean up the extracted text
+        cleaned_text = clean_ocr_text(extracted_text)
+        
+        # If we have metadata, try to enhance the text with context
+        if metadata and cleaned_text:
+            title = metadata.get("title", "")
+            if title:
+                # Add title context to help with embedding quality
+                cleaned_text = f"Image: {title}\n\n{cleaned_text}"
+        
+        return cleaned_text
+        
+    except Exception as e:
+        print(f"Error extracting text from image {image_path}: {e}")
+        return ""
+
+def clean_ocr_text(text):
+    """Clean and enhance OCR extracted text"""
+    if not text or not isinstance(text, str):
+        return ""
+    
+    # Basic cleaning
+    cleaned = text.strip()
+    if len(cleaned) < 5:
+        return ""
+    
+    # Fix common OCR errors
+    ocr_corrections = {
+        r'\s+': ' ',  # Multiple whitespace to single space
+        r'([a-z])([A-Z])': r'\1 \2',  # Add space between lowercase and uppercase
+        r'(\d)([A-Z])': r'\1 \2',  # Add space between digit and uppercase
+        r'([a-z])(\d)': r'\1 \2',  # Add space between lowercase and digit
+        r'\.{2,}': '.',  # Multiple dots to single dot
+        r'-{2,}': '-',   # Multiple dashes to single dash
+        r'_{2,}': '_',   # Multiple underscores to single underscore
+        r'\|{2,}': '|',  # Multiple pipes to single pipe
+        r'(\w)\|(\w)': r'\1 \2',  # Replace pipe between words with space
+        r'(\w)_(\w)': r'\1 \2',   # Replace underscore between words with space
+        r'([a-zA-Z])\s*\.\s*([a-zA-Z])': r'\1. \2',  # Fix spacing around periods
+        r'([a-zA-Z])\s*,\s*([a-zA-Z])': r'\1, \2',   # Fix spacing around commas
+        r'([a-zA-Z])\s*:\s*([a-zA-Z])': r'\1: \2',   # Fix spacing around colons
+    }
+    
+    for pattern, replacement in ocr_corrections.items():
+        cleaned = re.sub(pattern, replacement, cleaned)
+    
+    # Remove lines that are likely OCR artifacts
+    lines = cleaned.split('\n')
+    good_lines = []
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Skip lines that are mostly symbols or single characters
+        if len(line) < 3:
+            continue
+            
+        # Skip lines that are mostly numbers without context
+        if re.match(r'^[\d\s\-\.\,]+$', line) and len(line) < 10:
+            continue
+            
+        # Skip lines that are mostly special characters
+        special_char_ratio = sum(1 for c in line if not c.isalnum() and c != ' ') / len(line)
+        if special_char_ratio > 0.7:
+            continue
+        
+        good_lines.append(line)
+    
+    # Combine good lines
+    cleaned = ' '.join(good_lines)
+    
+    # Apply unicode normalization
+    cleaned = unicodedata.normalize('NFKC', cleaned)
+    
+    # Final cleanup
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    
+    return cleaned if len(cleaned) >= 10 else ""
+
+def enhance_image_for_embedding(extracted_text, metadata=None):
+    """Prepare image-derived text for optimal embeddings"""
+    if not extracted_text:
+        return extracted_text
+    
+    # Extract context from metadata
+    title = metadata.get("title", "") if metadata else ""
+    content_category = metadata.get("content_category", "") if metadata else ""
+    width = metadata.get("width", 0) if metadata else 0
+    height = metadata.get("height", 0) if metadata else 0
+    format_type = metadata.get("format", "") if metadata else ""
+    image_quality = metadata.get("image_quality", "") if metadata else ""
+    owner_name = metadata.get("image_owner_name", "") if metadata else ""
+    folder = metadata.get("folder", "") if metadata else ""
+    
+    # Optimized embedding instruction for image content
+    instruction = "Represent this image content accurately with high-quality semantic information for retrieval: "
+    
+    # Build rich context string with semantic boosting
+    context_parts = []
+    if title:
+        context_parts.append(f"Image Title: {title}")
+        # Add title twice for semantic emphasis
+        context_parts.append(f"Visual Content: {title}")
+    if content_category:
+        context_parts.append(f"Category: {content_category}")
+        context_parts.append(f"Type: {content_category}")
+    if format_type:
+        context_parts.append(f"Format: {format_type}")
+    if width and height:
+        context_parts.append(f"Dimensions: {width}x{height}")
+        # Classify by size
+        if width * height > 2000000:
+            context_parts.append("Resolution: High")
+        elif width * height > 500000:
+            context_parts.append("Resolution: Medium")
+        else:
+            context_parts.append("Resolution: Standard")
+    if image_quality and image_quality != "unknown":
+        context_parts.append(f"Quality: {image_quality}")
+    if owner_name:
+        context_parts.append(f"Creator: {owner_name}")
+    if folder:
+        context_parts.append(f"Source: {folder}")
+    
+    # Add semantic focus markers
+    context_parts.append("Content Type: Image with Text")
+    context_parts.append("Source: Visual Document")
+    context_parts.append("Importance: High")
+    
+    context_str = ""
+    if context_parts:
+        context_str = " | ".join(context_parts) + "\n\n"
+    
+    # Combine for final embedding text with semantic emphasis
+    enhanced_text = f"{instruction}{context_str}{extracted_text}"
+    
+    # Add trailing emphasis for recency bias in transformer models
+    enhanced_text += "\n\nThis image contains important visual information and text for accurate retrieval and similarity matching."
+    
+    return enhanced_text
+
+def process_image_files():
+    """Process image files and generate embeddings"""
+    print("\nProcessing image files...")
+    image_dir = IMAGE_DIR
+    
+    if not os.path.exists(image_dir):
+        print(f"Error: Images directory '{image_dir}' not found")
+        return [], {}
+    
+    # Find all image files in directory and subdirectories
+    image_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif', '.webp'}
+    all_image_files = []
+    
+    for root, _, files in os.walk(image_dir):
+        for file in files:
+            if any(file.lower().endswith(ext) for ext in image_extensions):
+                all_image_files.append(os.path.join(root, file))
+    
+    if not all_image_files:
+        print("No image files found")
+        return [], {}
+    
+    print(f"Found {len(all_image_files)} image files")
+    
+    # Process each image file
+    all_chunks = []
+    doc_embeddings = {}
+    
+    for image_file in tqdm(all_image_files, desc="Processing images"):
+        try:
+            # Extract metadata
+            image_meta = extract_image_metadata(image_file)
+            json_meta = extract_image_json_metadata(image_file)
+            
+            # Combine metadata
+            combined_meta = {**image_meta, **json_meta}
+            combined_meta["source"] = image_file
+            combined_meta["filename"] = os.path.basename(image_file)
+            combined_meta["content_type"] = "image"
+            
+            # Extract text using OCR
+            extracted_text = extract_text_from_image(image_file, combined_meta)
+            
+            # Skip if no text was extracted and image is very small
+            if not extracted_text and combined_meta.get("width", 0) * combined_meta.get("height", 0) < 50000:
+                print(f"Skipping {image_file}: No text extracted and image too small")
+                continue
+            
+            # If no text, create a description based on metadata
+            if not extracted_text:
+                description_parts = []
+                if combined_meta.get("title"):
+                    description_parts.append(f"Image titled: {combined_meta['title']}")
+                if combined_meta.get("content_category"):
+                    description_parts.append(f"Category: {combined_meta['content_category']}")
+                if combined_meta.get("width") and combined_meta.get("height"):
+                    description_parts.append(f"Dimensions: {combined_meta['width']}x{combined_meta['height']}")
+                if combined_meta.get("format"):
+                    description_parts.append(f"Format: {combined_meta['format']}")
+                
+                if description_parts:
+                    extracted_text = f"Visual content: {'. '.join(description_parts)}"
+                else:
+                    extracted_text = f"Image file: {combined_meta.get('filename', 'Unknown')}"
+            
+            # Create document embedding for hierarchical approach
+            if USE_HIERARCHICAL_EMBEDDINGS:
+                doc_title = combined_meta.get("title", os.path.basename(image_file))
+                doc_text = enhance_image_for_embedding(extracted_text[:min(len(extracted_text), 1000)], combined_meta)
+                try:
+                    doc_embeddings[image_file] = embedding_model.embed_query(doc_text)
+                except Exception as e:
+                    print(f"Error creating document embedding: {e}")
+            
+            # For images, we typically don't need to split into chunks unless text is very long
+            if len(extracted_text) > CHUNK_SIZE * 2:
+                # Split very long extracted text
+                text_chunks = text_splitter.split_text(extracted_text)
+            else:
+                # Use the whole extracted text as one chunk
+                text_chunks = [extracted_text] if extracted_text else []
+            
+            if not text_chunks:
+                continue
+            
+            # Process each chunk (usually just one for images)
+            for i, chunk_text in enumerate(text_chunks):
+                if not chunk_text or len(chunk_text) < 10:
+                    continue
+                
+                # Create chunk metadata
+                chunk_meta = combined_meta.copy()
+                chunk_meta["text"] = chunk_text
+                chunk_meta["segment"] = i
+                chunk_meta["embedding_model"] = model_name
+                chunk_meta["hierarchical_embedding"] = USE_HIERARCHICAL_EMBEDDINGS
+                chunk_meta["embedding_enhanced"] = True
+                chunk_meta["chunk_size"] = CHUNK_SIZE
+                chunk_meta["chunk_overlap"] = CHUNK_OVERLAP
+                chunk_meta["ocr_extracted"] = bool(PYTESSERACT_AVAILABLE and extracted_text)
+                
+                all_chunks.append({"metadata": chunk_meta, "source": image_file})
+        
+        except Exception as e:
+            print(f"Error processing image {image_file}: {e}")
+            continue  # Continue with next file even if this one fails
+    
+    print(f"Created {len(all_chunks)} chunks from image files")
+    return all_chunks, doc_embeddings
 
 if __name__ == "__main__":
     process_documents() 

@@ -1,0 +1,26 @@
+{
+    "id": "1iwnllA_2EPLWtY_eXedVejfdMh68u44w",
+    "name": "1.png",
+    "mimeType": "image/png",
+    "createdTime": "2024-07-26T14:57:23.701Z",
+    "modifiedTime": "2024-08-01T05:51:55.188Z",
+    "owners": [
+        {
+            "kind": "drive#user",
+            "displayName": "Maria Montiel",
+            "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjU6pnqSLb4f6E2BoHI8XOZvoqFtRExoft7P7-25H9BGrIC5blA=s64",
+            "me": false,
+            "permissionId": "01026789007042644519",
+            "emailAddress": "m.montiel@tjbpo.mx"
+        }
+    ],
+    "lastModifyingUser": {
+        "kind": "drive#user",
+        "displayName": "Maria Montiel",
+        "photoLink": "https://lh3.googleusercontent.com/a-/ALV-UjU6pnqSLb4f6E2BoHI8XOZvoqFtRExoft7P7-25H9BGrIC5blA=s64",
+        "me": false,
+        "permissionId": "01026789007042644519",
+        "emailAddress": "m.montiel@tjbpo.mx"
+    },
+    "size": "2242951"
+}

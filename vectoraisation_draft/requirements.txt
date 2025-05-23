@@ -28,3 +28,8 @@ weaviate-client==4.14.4
 google.generativeai
 nltk==3.9.1
 PyMuPDF==1.25.5
+pillow==11.2.1
+pytesseract==0.3.13
+# sudo apt-get install tesseract-ocr
+
+
