@@ -41,6 +41,37 @@ except ImportError:
     PIL_AVAILABLE = False
     print("⚠️ PIL not available. Image processing disabled.")
 
+# Advanced image processing imports
+try:
+    import cv2
+    import easyocr
+    ADVANCED_OCR_AVAILABLE = True
+    print("✅ EasyOCR and OpenCV available for advanced image processing")
+except ImportError:
+    ADVANCED_OCR_AVAILABLE = False
+    print("⚠️ Advanced OCR libraries not available. Using fallback methods.")
+
+try:
+    import torch
+    from transformers import BlipProcessor, BlipForConditionalGeneration
+    from transformers import pipeline
+    AI_VISION_AVAILABLE = True
+    print("✅ AI Vision models available for image understanding")
+except ImportError:
+    AI_VISION_AVAILABLE = False
+    print("⚠️ AI Vision models not available. Using basic image processing.")
+
+try:
+    import numpy as np
+    from skimage import filters, morphology, measure, segmentation
+    from skimage.feature import canny
+    from skimage.color import rgb2gray
+    SKIMAGE_AVAILABLE = True
+    print("✅ Scikit-image available for advanced preprocessing")
+except ImportError:
+    SKIMAGE_AVAILABLE = False
+    print("⚠️ Scikit-image not available.")
+
 # Load environment variables
 load_dotenv()
 
@@ -108,6 +139,44 @@ embedding_model = HuggingFaceBgeEmbeddings(
     model_name=model_name,
     model_kwargs=model_kwargs,
     encode_kwargs=encode_kwargs)
+
+# Initialize AI vision models for advanced image understanding
+EASYOCR_READER = None
+BLIP_PROCESSOR = None
+BLIP_MODEL = None
+IMAGE_CAPTIONER = None
+
+def initialize_ai_models():
+    """Initialize AI models for advanced image processing"""
+    global EASYOCR_READER, BLIP_PROCESSOR, BLIP_MODEL, IMAGE_CAPTIONER
+    
+    if ADVANCED_OCR_AVAILABLE and EASYOCR_READER is None:
+        try:
+            print("🤖 Initializing EasyOCR...")
+            EASYOCR_READER = easyocr.Reader(['en'], gpu=False)  # Use CPU for compatibility
+            print("✅ EasyOCR initialized successfully")
+        except Exception as e:
+            print(f"⚠️ Failed to initialize EasyOCR: {e}")
+    
+    if AI_VISION_AVAILABLE and BLIP_PROCESSOR is None:
+        try:
+            print("🤖 Initializing BLIP for image captioning...")
+            BLIP_PROCESSOR = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+            BLIP_MODEL = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+            print("✅ BLIP model initialized successfully")
+        except Exception as e:
+            print(f"⚠️ Failed to initialize BLIP: {e}")
+    
+    if AI_VISION_AVAILABLE and IMAGE_CAPTIONER is None:
+        try:
+            print("🤖 Initializing Image-to-Text pipeline...")
+            IMAGE_CAPTIONER = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning")
+            print("✅ Image captioner initialized successfully")
+        except Exception as e:
+            print(f"⚠️ Failed to initialize image captioner: {e}")
+
+# Initialize AI models
+initialize_ai_models()
 
 # Initialize text splitter
 text_splitter = RecursiveCharacterTextSplitter(
@@ -1676,93 +1745,267 @@ def extract_image_json_metadata(image_path):
         print(f"Error extracting JSON metadata for image: {e}")
         return {}
 
-def preprocess_image_for_ocr(image_path):
-    """Preprocess image to improve OCR quality"""
-    if not PIL_AVAILABLE:
+def advanced_image_preprocessing(image_path):
+    """Advanced image preprocessing using OpenCV and scikit-image for optimal OCR and AI processing"""
+    if not cv2:
         return None
     
     try:
-        with Image.open(image_path) as img:
-            # Convert to RGB if needed
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
+        # Read image with OpenCV
+        img = cv2.imread(image_path)
+        if img is None:
+            return None
+        
+        # Store original for AI processing
+        original_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        
+        # Convert to grayscale for OCR processing
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # Advanced noise reduction
+        # Apply bilateral filter to reduce noise while preserving edges
+        denoised = cv2.bilateralFilter(gray, 9, 75, 75)
+        
+        # Adaptive histogram equalization for better contrast
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        enhanced = clahe.apply(denoised)
+        
+        # Perspective correction and deskewing
+        # Detect text regions and correct skew
+        coords = np.column_stack(np.where(enhanced > 0))
+        if len(coords) > 0:
+            angle = cv2.minAreaRect(coords)[-1]
+            if angle < -45:
+                angle = -(90 + angle)
+            else:
+                angle = -angle
             
-            # Convert to grayscale for better OCR
-            img = img.convert('L')
-            
-            # Enhance contrast
-            enhancer = ImageEnhance.Contrast(img)
-            img = enhancer.enhance(2.0)
-            
-            # Enhance sharpness
-            enhancer = ImageEnhance.Sharpness(img)
-            img = enhancer.enhance(1.5)
-            
-            # Resize if too small (OCR works better on larger images)
-            width, height = img.size
-            if width < 1000 or height < 1000:
-                scale_factor = max(1000 / width, 1000 / height)
-                new_width = int(width * scale_factor)
-                new_height = int(height * scale_factor)
-                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-            
-            # Apply median filter to reduce noise
-            img = img.filter(ImageFilter.MedianFilter(size=3))
-            
-            return img
+            # Only apply rotation if angle is significant
+            if abs(angle) > 0.5:
+                (h, w) = enhanced.shape[:2]
+                center = (w // 2, h // 2)
+                M = cv2.getRotationMatrix2D(center, angle, 1.0)
+                enhanced = cv2.warpAffine(enhanced, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+        
+        # Morphological operations to clean up text
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 1))
+        enhanced = cv2.morphologyEx(enhanced, cv2.MORPH_CLOSE, kernel)
+        
+        # Adaptive thresholding for better text separation
+        binary = cv2.adaptiveThreshold(enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+        
+        # Resize if too small (minimum 1500px on larger dimension for better OCR)
+        height, width = binary.shape
+        if max(height, width) < 1500:
+            scale_factor = 1500 / max(height, width)
+            new_width = int(width * scale_factor)
+            new_height = int(height * scale_factor)
+            binary = cv2.resize(binary, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+            original_rgb = cv2.resize(original_rgb, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+        
+        # Return both processed image for OCR and original for AI vision
+        return {
+            'processed': binary,
+            'original_rgb': original_rgb,
+            'enhanced_gray': enhanced
+        }
+        
     except Exception as e:
-        print(f"Error preprocessing image: {e}")
+        print(f"Error in advanced preprocessing: {e}")
         return None
 
-def extract_text_from_image(image_path, metadata=None):
-    """Extract text from image using OCR with enhanced preprocessing"""
-    if not PYTESSERACT_AVAILABLE or not PIL_AVAILABLE:
-        return ""
+def extract_image_caption_ai(image_path):
+    """Extract image caption using AI vision models"""
+    captions = []
     
     try:
-        # Preprocess image for better OCR
-        processed_img = preprocess_image_for_ocr(image_path)
-        if processed_img is None:
-            return ""
-        
-        # Configure Tesseract for better results
-        custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .,!?@#$%&*()[]{}:;"\'+-=/<>|_~`'
-        
-        # Extract text
-        extracted_text = pytesseract.image_to_string(processed_img, config=custom_config)
-        
-        # Try different PSM modes if first attempt yields poor results
-        if len(extracted_text.strip()) < 20:
-            # Try PSM 3 (fully automatic page segmentation)
-            config_psm3 = r'--oem 3 --psm 3'
-            extracted_text_psm3 = pytesseract.image_to_string(processed_img, config=config_psm3)
+        if BLIP_PROCESSOR and BLIP_MODEL:
+            # Load image
+            image = Image.open(image_path).convert('RGB')
             
-            if len(extracted_text_psm3.strip()) > len(extracted_text.strip()):
-                extracted_text = extracted_text_psm3
-        
-        # If still poor results, try PSM 11 (sparse text)
-        if len(extracted_text.strip()) < 20:
-            config_psm11 = r'--oem 3 --psm 11'
-            extracted_text_psm11 = pytesseract.image_to_string(processed_img, config=config_psm11)
+            # Process with BLIP
+            inputs = BLIP_PROCESSOR(image, return_tensors="pt")
+            out = BLIP_MODEL.generate(**inputs, max_length=100, num_beams=5)
+            caption = BLIP_PROCESSOR.decode(out[0], skip_special_tokens=True)
+            captions.append(f"BLIP Caption: {caption}")
             
-            if len(extracted_text_psm11.strip()) > len(extracted_text.strip()):
-                extracted_text = extracted_text_psm11
+        if IMAGE_CAPTIONER:
+            # Process with alternative captioner
+            image = Image.open(image_path)
+            result = IMAGE_CAPTIONER(image)
+            if result and len(result) > 0:
+                caption = result[0].get('generated_text', '')
+                if caption:
+                    captions.append(f"ViT-GPT2 Caption: {caption}")
+    
+    except Exception as e:
+        print(f"Error in AI captioning: {e}")
+    
+    return " | ".join(captions) if captions else ""
+
+def extract_text_with_easyocr(image_data):
+    """Extract text using EasyOCR with multiple processing approaches"""
+    if not EASYOCR_READER or not image_data:
+        return ""
+    
+    extracted_texts = []
+    
+    try:
+        # Process the enhanced binary image
+        if 'processed' in image_data:
+            result = EASYOCR_READER.readtext(image_data['processed'], detail=0, paragraph=True)
+            if result:
+                text = " ".join(result).strip()
+                if text:
+                    extracted_texts.append(text)
         
-        # Clean up the extracted text
-        cleaned_text = clean_ocr_text(extracted_text)
+        # Process the original color image
+        if 'original_rgb' in image_data:
+            result = EASYOCR_READER.readtext(image_data['original_rgb'], detail=0, paragraph=True)
+            if result:
+                text = " ".join(result).strip()
+                if text and text not in extracted_texts:
+                    extracted_texts.append(text)
         
-        # If we have metadata, try to enhance the text with context
-        if metadata and cleaned_text:
+        # Process enhanced grayscale
+        if 'enhanced_gray' in image_data:
+            result = EASYOCR_READER.readtext(image_data['enhanced_gray'], detail=0, paragraph=True)
+            if result:
+                text = " ".join(result).strip()
+                if text and text not in extracted_texts:
+                    extracted_texts.append(text)
+        
+        # Combine and return best result
+        if extracted_texts:
+            # Return the longest text as it's likely most complete
+            return max(extracted_texts, key=len)
+            
+    except Exception as e:
+        print(f"Error in EasyOCR extraction: {e}")
+    
+    return ""
+
+def detect_image_content_type(image_path):
+    """Detect the type of content in the image using AI vision"""
+    content_types = []
+    
+    try:
+        # Analyze image with OpenCV for basic features
+        img = cv2.imread(image_path)
+        if img is not None:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            
+            # Detect if image contains charts/graphs
+            edges = cv2.Canny(gray, 50, 150)
+            lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100, minLineLength=100, maxLineGap=10)
+            if lines is not None and len(lines) > 20:
+                content_types.append("chart_or_diagram")
+            
+            # Detect if image has a lot of text (high edge density in text regions)
+            text_likelihood = np.sum(edges) / (edges.shape[0] * edges.shape[1])
+            if text_likelihood > 0.1:
+                content_types.append("text_heavy")
+            
+            # Detect if image appears to be a screenshot (regular patterns)
+            template = np.ones((5,5), np.uint8)
+            matching = cv2.matchTemplate(gray, template, cv2.TM_CCOEFF_NORMED)
+            if np.max(matching) > 0.8:
+                content_types.append("screenshot")
+    
+    except Exception as e:
+        print(f"Error in content type detection: {e}")
+    
+    return content_types
+
+def preprocess_image_for_ocr(image_path):
+    """Legacy function - now redirects to advanced preprocessing"""
+    result = advanced_image_preprocessing(image_path)
+    if result and 'processed' in result:
+        # Convert back to PIL Image for compatibility
+        cv2_img = result['processed']
+        return Image.fromarray(cv2_img)
+    return None
+
+def extract_text_from_image(image_path, metadata=None):
+    """Advanced text extraction using multiple AI-powered methods"""
+    if not os.path.exists(image_path):
+        return ""
+    
+    extracted_content = []
+    
+    try:
+        # Step 1: Advanced image preprocessing
+        processed_images = advanced_image_preprocessing(image_path)
+        
+        # Step 2: Extract text using EasyOCR (primary method)
+        if ADVANCED_OCR_AVAILABLE and processed_images:
+            easyocr_text = extract_text_with_easyocr(processed_images)
+            if easyocr_text:
+                extracted_content.append(f"Text Content: {easyocr_text}")
+        
+        # Step 3: Fallback to Pytesseract if EasyOCR fails or not available
+        if not extracted_content and PYTESSERACT_AVAILABLE and processed_images:
+            try:
+                # Use the processed binary image
+                if 'processed' in processed_images:
+                    pil_img = Image.fromarray(processed_images['processed'])
+                    config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .,!?@#$%&*()[]{}:;"\'+-=/<>|_~`'
+                    pytess_text = pytesseract.image_to_string(pil_img, config=config)
+                    cleaned_pytess = clean_ocr_text(pytess_text)
+                    if cleaned_pytess:
+                        extracted_content.append(f"Text Content: {cleaned_pytess}")
+            except Exception as e:
+                print(f"Pytesseract fallback failed: {e}")
+        
+        # Step 4: AI-powered image captioning for visual understanding
+        if AI_VISION_AVAILABLE:
+            image_caption = extract_image_caption_ai(image_path)
+            if image_caption:
+                extracted_content.append(f"Visual Description: {image_caption}")
+        
+        # Step 5: Content type detection
+        content_types = detect_image_content_type(image_path)
+        if content_types:
+            extracted_content.append(f"Content Type: {', '.join(content_types)}")
+        
+        # Step 6: Enhanced metadata context
+        if metadata:
             title = metadata.get("title", "")
             if title:
-                # Add title context to help with embedding quality
-                cleaned_text = f"Image: {title}\n\n{cleaned_text}"
+                extracted_content.insert(0, f"Image Title: {title}")
+            
+            # Add detected category from filename/path analysis
+            category = metadata.get("content_category", "")
+            if category:
+                extracted_content.append(f"Category: {category}")
         
-        return cleaned_text
+        # Step 7: Combine all extracted information
+        if extracted_content:
+            final_text = "\n\n".join(extracted_content)
+            
+            # Add semantic markers for better embedding
+            final_text = f"=== IMAGE ANALYSIS ===\n{final_text}\n=== END ANALYSIS ==="
+            
+            return final_text
+        
+        # Step 8: Fallback description if no text extracted
+        if metadata:
+            fallback_parts = []
+            if metadata.get("title"):
+                fallback_parts.append(f"Image: {metadata['title']}")
+            if metadata.get("width") and metadata.get("height"):
+                fallback_parts.append(f"Dimensions: {metadata['width']}x{metadata['height']}")
+            if metadata.get("format"):
+                fallback_parts.append(f"Format: {metadata['format']}")
+            
+            if fallback_parts:
+                return f"Visual Content: {'. '.join(fallback_parts)}"
+        
+        return f"Image file: {os.path.basename(image_path)}"
         
     except Exception as e:
-        print(f"Error extracting text from image {image_path}: {e}")
-        return ""
+        print(f"Error in advanced text extraction from {image_path}: {e}")
+        return f"Image processing error for: {os.path.basename(image_path)}"
 
 def clean_ocr_text(text):
     """Clean and enhance OCR extracted text"""
@@ -1830,7 +2073,7 @@ def clean_ocr_text(text):
     return cleaned if len(cleaned) >= 10 else ""
 
 def enhance_image_for_embedding(extracted_text, metadata=None):
-    """Prepare image-derived text for optimal embeddings"""
+    """Prepare AI-enhanced image content for optimal embeddings"""
     if not extracted_text:
         return extracted_text
     
@@ -1844,52 +2087,97 @@ def enhance_image_for_embedding(extracted_text, metadata=None):
     owner_name = metadata.get("image_owner_name", "") if metadata else ""
     folder = metadata.get("folder", "") if metadata else ""
     
-    # Optimized embedding instruction for image content
-    instruction = "Represent this image content accurately with high-quality semantic information for retrieval: "
+    # Optimized embedding instruction for AI-enhanced image content
+    instruction = "Represent this comprehensive image analysis with high-quality semantic information for accurate retrieval: "
     
-    # Build rich context string with semantic boosting
+    # Build enhanced context string with semantic boosting
     context_parts = []
     if title:
-        context_parts.append(f"Image Title: {title}")
-        # Add title twice for semantic emphasis
-        context_parts.append(f"Visual Content: {title}")
+        context_parts.append(f"Document: {title}")
+        context_parts.append(f"Visual Asset: {title}")  # Multiple semantic angles
     if content_category:
         context_parts.append(f"Category: {content_category}")
-        context_parts.append(f"Type: {content_category}")
+        context_parts.append(f"Content Type: {content_category}")
     if format_type:
-        context_parts.append(f"Format: {format_type}")
+        context_parts.append(f"Image Format: {format_type}")
     if width and height:
-        context_parts.append(f"Dimensions: {width}x{height}")
-        # Classify by size
-        if width * height > 2000000:
-            context_parts.append("Resolution: High")
-        elif width * height > 500000:
-            context_parts.append("Resolution: Medium")
+        total_pixels = width * height
+        context_parts.append(f"Resolution: {width}x{height}")
+        # Enhanced resolution classification
+        if total_pixels > 4000000:
+            context_parts.append("Quality: Ultra High Resolution")
+        elif total_pixels > 2000000:
+            context_parts.append("Quality: High Resolution")
+        elif total_pixels > 500000:
+            context_parts.append("Quality: Standard Resolution")
         else:
-            context_parts.append("Resolution: Standard")
+            context_parts.append("Quality: Low Resolution")
     if image_quality and image_quality != "unknown":
-        context_parts.append(f"Quality: {image_quality}")
+        context_parts.append(f"Image Quality: {image_quality}")
     if owner_name:
         context_parts.append(f"Creator: {owner_name}")
+        context_parts.append(f"Author: {owner_name}")  # Alternative semantic
     if folder:
-        context_parts.append(f"Source: {folder}")
+        context_parts.append(f"Collection: {folder}")
+        context_parts.append(f"Source Directory: {folder}")
     
-    # Add semantic focus markers
-    context_parts.append("Content Type: Image with Text")
-    context_parts.append("Source: Visual Document")
-    context_parts.append("Importance: High")
+    # Add comprehensive semantic focus markers
+    context_parts.extend([
+        "Media Type: Visual Content with AI Analysis",
+        "Content Source: Image Processing System",
+        "Analysis Method: Multi-Modal AI Processing",
+        "Information Type: Visual and Textual Data",
+        "Processing: OCR and Computer Vision",
+        "Retrieval Priority: High Importance"
+    ])
+    
+    # Analyze the extracted content to add more semantic markers
+    if "Text Content:" in extracted_text:
+        context_parts.append("Contains: Extracted Text Information")
+    if "Visual Description:" in extracted_text:
+        context_parts.append("Contains: AI-Generated Visual Analysis")
+    if "Content Type:" in extracted_text:
+        context_parts.append("Contains: Automated Content Classification")
+    if "chart" in extracted_text.lower() or "graph" in extracted_text.lower():
+        context_parts.append("Visual Type: Data Visualization")
+    if "success" in extracted_text.lower() and "story" in extracted_text.lower():
+        context_parts.append("Business Content: Success Case Study")
     
     context_str = ""
     if context_parts:
         context_str = " | ".join(context_parts) + "\n\n"
     
-    # Combine for final embedding text with semantic emphasis
-    enhanced_text = f"{instruction}{context_str}{extracted_text}"
+    # Enhance the extracted text with semantic structure
+    enhanced_text = extracted_text
     
-    # Add trailing emphasis for recency bias in transformer models
-    enhanced_text += "\n\nThis image contains important visual information and text for accurate retrieval and similarity matching."
+    # Add semantic sections for better understanding
+    if "=== IMAGE ANALYSIS ===" in enhanced_text:
+        # Text is already structured, enhance it
+        enhanced_text = enhanced_text.replace(
+            "=== IMAGE ANALYSIS ===", 
+            "=== COMPREHENSIVE IMAGE ANALYSIS FOR SEMANTIC RETRIEVAL ==="
+        )
+        enhanced_text = enhanced_text.replace(
+            "=== END ANALYSIS ===", 
+            "=== END COMPREHENSIVE ANALYSIS ==="
+        )
+    else:
+        # Add structure to unstructured text
+        enhanced_text = f"=== IMAGE CONTENT ANALYSIS ===\n{enhanced_text}\n=== END CONTENT ANALYSIS ==="
     
-    return enhanced_text
+    # Combine for final embedding text with maximum semantic emphasis
+    final_text = f"{instruction}{context_str}{enhanced_text}"
+    
+    # Add multiple trailing emphasis patterns for recency bias in transformer models
+    final_text += "\n\n" + " | ".join([
+        "This image contains important visual and textual information",
+        "Processed with advanced AI image analysis",
+        "Optimized for accurate semantic retrieval and similarity matching",
+        "High-quality multi-modal content extraction",
+        "Suitable for intelligent document search and question answering"
+    ])
+    
+    return final_text
 
 def process_image_files():
     """Process image files and generate embeddings"""
