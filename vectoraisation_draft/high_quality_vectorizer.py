@@ -261,6 +261,8 @@ def extract_json_metadata(pdf_path):
         processed_data = {}
         for key, value in json_data.items():
             field_name = f"document_{key}" if not key.startswith("document_") else key
+            # Sanitize the field name to be GraphQL compliant
+            field_name = sanitize_property_name(field_name)
             
             if isinstance(value, (bool, int, float, str)):
                 processed_data[field_name] = value
@@ -417,6 +419,8 @@ def discover_json_fields():
                     
                     for key, value in data.items():
                         field_name = f"document_{key}"
+                        # Sanitize the field name to be GraphQL compliant
+                        field_name = sanitize_property_name(field_name)
                         
                         if isinstance(value, bool):
                             field_type = "boolean"
@@ -620,6 +624,41 @@ def setup_weaviate_collection():
         print(f"Error setting up collection: {e}")
         return False
 
+def sanitize_property_name(name):
+    """Sanitize property names to be GraphQL compliant"""
+    if not name:
+        return name
+    
+    # Convert to string if not already
+    name = str(name)
+    
+    # Replace invalid characters with underscores
+    # GraphQL names must match /[_A-Za-z][_0-9A-Za-z]{0,230}/
+    import re
+    
+    # Replace any non-alphanumeric character (except underscore) with underscore
+    sanitized = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+    
+    # Remove multiple consecutive underscores
+    sanitized = re.sub(r'_+', '_', sanitized)
+    
+    # Remove leading/trailing underscores
+    sanitized = sanitized.strip('_')
+    
+    # Ensure it starts with a letter or underscore
+    if sanitized and not re.match(r'^[a-zA-Z_]', sanitized):
+        sanitized = f"field_{sanitized}"
+    
+    # Ensure it's not empty
+    if not sanitized:
+        sanitized = "unknown_field"
+    
+    # Limit length to 230 characters (GraphQL limit)
+    if len(sanitized) > 230:
+        sanitized = sanitized[:230]
+    
+    return sanitized
+
 def store_embedding(properties, vector):
     """Store a vector in Weaviate"""
     if not vector or not properties:
@@ -636,11 +675,14 @@ def store_embedding(properties, vector):
     cleaned_properties = {}
     for key, value in properties.items():
         if value is not None and value != "":
+            # Sanitize property name to be GraphQL compliant
+            clean_key = sanitize_property_name(key)
+            
             # Handle DPI tuple conversion
             if key == "dpi" and isinstance(value, tuple):
-                cleaned_properties[key] = f"{value[0]},{value[1]}"
+                cleaned_properties[clean_key] = f"{value[0]},{value[1]}"
             else:
-                cleaned_properties[key] = value
+                cleaned_properties[clean_key] = value
     
     # Prepare object data
     object_data = {
@@ -1594,6 +1636,8 @@ def extract_image_json_metadata(image_path):
         processed_data = {}
         for key, value in json_data.items():
             field_name = f"image_{key}" if not key.startswith("image_") else key
+            # Sanitize the field name to be GraphQL compliant
+            field_name = sanitize_property_name(field_name)
             
             if isinstance(value, (bool, int, float, str)):
                 processed_data[field_name] = value
@@ -1602,10 +1646,10 @@ def extract_image_json_metadata(image_path):
                 if key == "owners" and len(value) > 0:
                     owner = value[0]
                     if isinstance(owner, dict):
-                        processed_data["image_owner_name"] = owner.get("displayName", "")
-                        processed_data["image_owner_email"] = owner.get("emailAddress", "")
+                        processed_data[sanitize_property_name("image_owner_name")] = owner.get("displayName", "")
+                        processed_data[sanitize_property_name("image_owner_email")] = owner.get("emailAddress", "")
                 elif key == "lastModifyingUser" and isinstance(value, dict):
-                    processed_data["image_last_modifier"] = value.get("displayName", "")
+                    processed_data[sanitize_property_name("image_last_modifier")] = value.get("displayName", "")
                 else:
                     try:
                         processed_data[field_name] = json.dumps(value)
@@ -1614,8 +1658,8 @@ def extract_image_json_metadata(image_path):
             elif isinstance(value, dict):
                 # Handle nested objects
                 if key == "lastModifyingUser":
-                    processed_data["image_last_modifier"] = value.get("displayName", "")
-                    processed_data["image_last_modifier_email"] = value.get("emailAddress", "")
+                    processed_data[sanitize_property_name("image_last_modifier")] = value.get("displayName", "")
+                    processed_data[sanitize_property_name("image_last_modifier_email")] = value.get("emailAddress", "")
                 else:
                     try:
                         processed_data[field_name] = json.dumps(value)
